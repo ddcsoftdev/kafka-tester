@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kafka Tester</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="container">
+      <h2>Kafka Configuration</h2>
+      <input type="text" id="brokers" placeholder="Broker List (comma-separated)" />
+      <input type="text" id="topic" placeholder="Topic Name" />
+      <select id="mode">
+        <option value="producer">Producer</option>
+        <option value="consumer">Consumer</option>
+      </select>
+      <button id="connect">Connect</button>
+      <div id="status"></div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html> 

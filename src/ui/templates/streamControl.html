@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src #{webview.cspSource} 'unsafe-inline'; script-src #{webview.cspSource} 'unsafe-inline';">
+    <title>Kafka Stream Tester</title>
+    <style>
+        :root {
+            --container-padding: 20px;
+            --input-padding-vertical: 6px;
+            --input-padding-horizontal: 12px;
+            --input-margin-vertical: 4px;
+            --input-margin-horizontal: 0;
+            --border-radius: 8px;
+            --transition-speed: 0.2s;
+        }
+
+        body {
+            padding: var(--container-padding);
+            color: var(--vscode-foreground);
+            font-size: var(--vscode-font-size);
+            font-weight: var(--vscode-font-weight);
+            font-family: var(--vscode-font-family);
+            background-color: var(--vscode-editor-background);
+            line-height: 1.5;
+            width: calc(100% - 2 * var(--container-padding));
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        .section {
+            margin-bottom: 24px;
+            padding: 20px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: var(--border-radius);
+            background: color-mix(in srgb, var(--vscode-editor-background) 97%, white);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all var(--transition-speed) ease;
+        }
+
+        .section:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--vscode-editor-foreground);
+            letter-spacing: 0.3px;
+        }
+
+        .tab-container {
+            margin-bottom: 24px;
+        }
+
+        .section-content {
+            overflow: hidden;
+            transition: all var(--transition-speed) ease;
+            opacity: 1;
+            transform: translateY(0);
+            height: auto;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 24px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 0 var(--border-radius) var(--border-radius) var(--border-radius);
+            background: var(--vscode-tab-activeBackground);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 4px;
+            margin-bottom: -1px;
+            padding: 0 4px;
+        }
+
+        .tab-button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            padding-right: 36px;
+            border: 1px solid var(--vscode-panel-border);
+            border-bottom: none;
+            background: var(--vscode-tab-inactiveBackground);
+            color: var(--vscode-tab-inactiveForeground);
+            cursor: pointer;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            transition: all var(--transition-speed) ease;
+            font-weight: 500;
+        }
+
+        .tab-button:hover {
+            background: color-mix(in srgb, var(--vscode-tab-inactiveBackground) 90%, white);
+        }
+
+        .tab-button.active {
+            background: var(--vscode-tab-activeBackground);
+            color: var(--vscode-tab-activeForeground);
+            border-bottom: 2px solid var(--vscode-focusBorder);
+            font-weight: 600;
+        }
+
+        .param-section {
+            margin-top: 32px;
+            padding: 24px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: var(--border-radius);
+            background: var(--vscode-editor-background);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all var(--transition-speed) ease;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .param-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: var(--border-radius);
+            background: var(--vscode-editor-background);
+            margin-bottom: 16px;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .param-header:hover {
+            background: color-mix(in srgb, var(--vscode-editor-background) 95%, white);
+            transform: translateY(-1px);
+        }
+
+        .param-arrow {
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: var(--vscode-icon-foreground);
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .param-arrow.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .param-content {
+            overflow: hidden;
+            transition: all var(--transition-speed) ease;
+            opacity: 1;
+            transform: translateY(0);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .param-content.collapsed {
+            height: 0;
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+
+        .param-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .param-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--vscode-tab-inactiveBackground);
+            border: 1px solid var(--vscode-tab-border);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.95em;
+            height: 32px;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .param-tab:hover {
+            background: color-mix(in srgb, var(--vscode-tab-inactiveBackground) 90%, white);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .param-tab.active {
+            background: var(--vscode-tab-activeBackground);
+            border-color: var(--vscode-focusBorder);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .param-tab-close {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: var(--vscode-icon-foreground);
+            cursor: pointer;
+            padding: 0;
+            font-size: 14px;
+        }
+
+        .param-tab-close:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+
+        .param-tab-add {
+            padding: 8px 16px;
+            background: transparent;
+            border: 2px dashed var(--vscode-tab-border);
+            color: var(--vscode-button-foreground);
+            font-size: 1.2em;
+            height: 32px;
+            min-width: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-speed) ease;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+        }
+
+        .param-tab-add:hover {
+            background: color-mix(in srgb, var(--vscode-button-background) 15%, transparent);
+            border-color: var(--vscode-focusBorder);
+            transform: scale(1.05);
+        }
+
+        .param-type-container {
+            position: relative;
+            width: 100%;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .param-type-select {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .param-type-select:hover {
+            border-color: color-mix(in srgb, var(--vscode-focusBorder) 50%, var(--vscode-dropdown-border));
+        }
+
+        .param-type-options {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: var(--border-radius);
+            z-index: 9999;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            animation: fadeScale 0.2s ease;
+        }
+
+        @keyframes fadeScale {
+            from { opacity: 0; transform: translate(-50%, -48%) scale(0.98); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .faker-type-quick {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            padding: 16px;
+            background: var(--vscode-dropdown-background);
+        }
+
+        .faker-type-option {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: var(--border-radius);
+            white-space: nowrap;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .faker-type-option:hover {
+            background: var(--vscode-list-hoverBackground);
+            transform: translateX(4px);
+        }
+
+        .param-type-search {
+            position: sticky;
+            top: 0;
+            padding: 16px;
+            background: var(--vscode-dropdown-background);
+            border-bottom: 1px solid var(--vscode-dropdown-border);
+            z-index: 1;
+        }
+
+        .param-type-list {
+            padding: 8px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .manual-values {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 4px;
+            border-radius: var(--border-radius);
+            transition: all var(--transition-speed) ease;
+        }
+
+        .checkbox-wrapper:hover {
+            background: color-mix(in srgb, var(--vscode-list-hoverBackground) 50%, transparent);
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            margin: 0;
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: var(--border-radius);
+            color: var(--vscode-button-foreground);
+            background: var(--vscode-button-background);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all var(--transition-speed) ease;
+        }
+
+        button:hover {
+            background: var(--vscode-button-hoverBackground);
+            transform: translateY(-1px);
+        }
+
+        button.secondary {
+            color: var(--vscode-button-secondaryForeground);
+            background: var(--vscode-button-secondaryBackground);
+        }
+
+        button.secondary:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            padding: 16px;
+            background: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: var(--border-radius);
+            font-family: var(--vscode-editor-font-family);
+            margin-bottom: 16px;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .message {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .message:last-child {
+            border-bottom: none;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .faker-type-more {
+            color: var(--vscode-textLink-foreground);
+            cursor: pointer;
+            padding: 4px 8px;
+            text-align: center;
+        }
+
+        .param-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--vscode-tab-inactiveBackground);
+            border: 1px solid var(--vscode-tab-border);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.95em;
+            height: 32px;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .param-tab:hover {
+            background: color-mix(in srgb, var(--vscode-tab-inactiveBackground) 90%, white);
+        }
+
+        .param-tab.active {
+            background: var(--vscode-tab-activeBackground);
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .param-tab-close {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: var(--vscode-icon-foreground);
+            cursor: pointer;
+            padding: 0;
+            font-size: 14px;
+        }
+
+        .param-tab-close:hover {
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+
+        .param-tab-add {
+            padding: 8px 16px;
+            background: transparent;
+            border: 2px dashed var(--vscode-tab-border);
+            color: var(--vscode-button-foreground);
+            font-size: 1.2em;
+            height: 32px;
+            min-width: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-speed) ease;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+        }
+
+        .param-tab-add:hover {
+            background: color-mix(in srgb, var(--vscode-button-background) 15%, transparent);
+            border-color: var(--vscode-focusBorder);
+            transform: scale(1.05);
+        }
+
+        .param-type-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+            backdrop-filter: blur(2px);
+            animation: fadeIn 0.2s ease;
+        }
+
+        .tab-button > span {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .tab-button > span[contenteditable="true"] {
+            outline: 1px solid var(--vscode-focusBorder);
+            padding: 0 4px;
+            border-radius: 2px;
+            min-width: 50px;
+        }
+
+        .tab-close {
+            position: absolute;
+            right: 12px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0.7;
+            font-size: 16px;
+            border-radius: 50%;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .tab-close:hover {
+            opacity: 1;
+            background: var(--vscode-toolbar-hoverBackground);
+            transform: scale(1.1);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--vscode-scrollbarSlider-background);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--vscode-scrollbarSlider-hoverBackground);
+        }
+
+        /* Custom animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .toggle-pause-btn:active,
+        .toggle-connect-btn:active {
+            animation: pulse 0.3s ease;
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .action-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .action-button:hover {
+            background: var(--vscode-button-hoverBackground);
+            transform: translateY(-1px);
+        }
+
+        .action-button svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        #importInput {
+            display: none;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            padding: 16px;
+            border-radius: var(--border-radius);
+            background: var(--vscode-editor-background);
+            margin-bottom: 16px;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .section-header:hover {
+            background: color-mix(in srgb, var(--vscode-editor-background) 95%, white);
+            transform: translateY(-1px);
+        }
+
+        .section-arrow {
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: var(--vscode-icon-foreground);
+            transition: transform var(--transition-speed) ease;
+        }
+
+        .section-arrow.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            overflow: hidden;
+            transition: all var(--transition-speed) ease;
+            opacity: 1;
+            transform: translateY(0);
+            height: auto;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .section-content.collapsed {
+            height: 0 !important;
+            opacity: 0;
+            transform: translateY(-8px);
+            margin: 0;
+            padding: 0;
+            width: 0;
+        }
+
+        .param-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: var(--border-radius);
+            margin-bottom: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .checkbox-wrapper {
+            flex: 0 0 80px;
+            min-width: 80px;
+        }
+
+        .param-name-input {
+            flex: 0 0 150px;
+            min-width: 100px;
+            max-width: 150px;
+        }
+
+        .param-type-container,
+        .param-values {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .param-type-select,
+        .param-value-input {
+            width: 100%;
+            min-width: 0;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+
+        .input-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: var(--border-radius);
+        }
+
+        .input-mode-select {
+            padding: 6px 12px;
+            width: 120px;
+            background: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: var(--border-radius);
+        }
+
+        .global-controls {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .stream-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: var(--border-radius);
+        }
+
+        .sleep-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .sleep-container label {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .sleep-input {
+            width: 100px;
+            text-align: right;
+            padding: 4px 8px;
+            -moz-appearance: textfield !important;
+            -webkit-appearance: textfield !important;
+            appearance: textfield !important;
+        }
+
+        .sleep-input::-webkit-outer-spin-button,
+        .sleep-input::-webkit-inner-spin-button {
+            -webkit-appearance: none !important;
+            margin: 0;
+            display: none;
+        }
+
+        .stop-after-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+            white-space: nowrap;
+        }
+
+        .stop-after-container .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px;
+            min-width: unset;
+            flex: unset;
+            background: none;
+            border: none;
+        }
+
+        /* Override number input styling */
+        input[type="number"] {
+            -moz-appearance: textfield !important;
+            -webkit-appearance: textfield !important;
+            appearance: textfield !important;
+        }
+
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none !important;
+            margin: 0;
+            display: none;
+        }
+
+        .stop-after-input {
+            width: 140px;
+            text-align: right;
+            padding: 4px 8px;
+            -moz-appearance: textfield !important;
+            -webkit-appearance: textfield !important;
+            appearance: textfield !important;
+        }
+
+        /* Remove the number input arrows styling */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            display: none !important;
+            -webkit-appearance: none !important;
+            margin: 0;
+            opacity: 0;
+        }
+
+        @media (max-width: 900px) {
+            .param-row {
+                grid-template-columns: 80px minmax(100px, 150px) 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .param-row {
+                flex-wrap: wrap;
+            }
+            
+            .param-type-container,
+            .param-values {
+                flex-basis: 100%;
+            }
+        }
+
+        .param-panels {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .param-panel {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Base input styles */
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            padding: 8px 12px;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: var(--border-radius);
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            transition: all var(--transition-speed) ease;
+            outline: none;
+        }
+
+        input[type="text"]:hover,
+        input[type="number"]:hover,
+        textarea:hover,
+        select:hover {
+            border-color: color-mix(in srgb, var(--vscode-focusBorder) 50%, var(--vscode-input-border));
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: var(--vscode-focusBorder);
+            box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+        }
+
+        /* Specific input styles */
+        .sleep-input,
+        .stop-after-input {
+            width: 14px;
+            text-align: right;
+        }
+
+        .topic-input,
+        .broker-input,
+        .param-name-input,
+        .param-value-input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .template-input {
+            width: 100%;
+            min-height: 80px;
+            resize: vertical;
+            font-family: var(--vscode-editor-font-family);
+            line-height: 1.5;
+            white-space: pre;
+        }
+
+        .param-type-select {
+            width: 100%;
+            cursor: pointer;
+            background: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            padding: 8px 12px;
+            box-sizing: border-box;
+        }
+
+        /* Maintain existing constraints */
+        .param-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: var(--border-radius);
+            margin-bottom: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .checkbox-wrapper {
+            flex: 0 0 80px;
+            min-width: 80px;
+        }
+
+        .param-name-input {
+            flex: 0 0 150px;
+            min-width: 100px;
+            max-width: 150px;
+        }
+
+        .param-type-container,
+        .param-values {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        /* Form group styling */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--vscode-foreground);
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Checkbox styling */
+        input[type="checkbox"] {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--vscode-checkbox-border);
+            border-radius: 3px;
+            background: var(--vscode-checkbox-background);
+            position: relative;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background: var(--vscode-checkbox-selectBackground);
+            border-color: var(--vscode-checkbox-selectBorder);
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: "✓";
+            position: absolute;
+            color: var(--vscode-checkbox-foreground);
+            font-size: 12px;
+            left: 2px;
+            top: -1px;
+        }
+
+        input[type="checkbox"]:hover {
+            border-color: var(--vscode-checkbox-selectBorder);
+        }
+
+        /* Number input arrows styling */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            opacity: 1;
+            background: var(--vscode-button-background);
+            border-left: 1px solid var(--vscode-input-border);
+            height: 50%;
+            position: absolute;
+            right: 1px;
+            cursor: pointer;
+        }
+
+        .stop-after-input {
+            width: 100px;
+            text-align: right;
+            padding: 4px 8px;
+            -moz-appearance: textfield !important;
+            -webkit-appearance: textfield !important;
+            appearance: textfield !important;
+        }
+
+        .stop-after-input::-webkit-outer-spin-button,
+        .stop-after-input::-webkit-inner-spin-button {
+            -webkit-appearance: none !important;
+            margin: 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-actions">
+        <button class="action-button" id="exportBtn">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 3l7 7h-4v8h-6v-8h-4l7-7zm0-2l-9 9h6v8h6v-8h6l-9-9zm9 20h-18v2h18v-2z"/>
+            </svg>
+            Export Configuration
+        </button>
+        <button class="action-button" id="importBtn">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 21l-7-7h4v-8h6v8h4l-7 7zm0 2l9-9h-6v-8h-6v8h-6l9 9zm-9-20h18v2h-18v-2z"/>
+            </svg>
+            Import Configuration
+        </button>
+        <input type="file" id="importInput" accept=".json">
+    </div>
+
+    <div class="section">
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="useLocalBroker">
+            <label for="useLocalBroker">Use Local Broker</label>
+        </div>
+    </div>
+
+    <template id="input-tab-template">
+        <div class="stream-controls">
+            <div class="sleep-container">
+                <label>Sleep (ms):</label>
+                <input type="number" class="form-control sleep-input" min="0" value="0">
+            </div>
+            <div class="stop-after-container">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" class="stop-after-checkbox">
+                    <label>Stop after</label>
+                </div>
+                <input type="number" class="form-control stop-after-input" min="1" value="100">
+                <label>events</label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group">
+                <label class="form-label">Topic</label>
+                <input type="text" class="form-control topic-input" placeholder="Enter topic name">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Broker Address</label>
+                <input type="text" class="form-control broker-input" placeholder="localhost:9092">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">JSON Template</label>
+            <textarea class="form-control template-input" placeholder='{"key": "{{paramName}}"}' spellcheck="false"></textarea>
+        </div>
+        <div class="param-section">
+            <div class="section-title">Parameters</div>
+            <div class="param-content">
+                <div class="param-tabs">
+                    <button class="param-tab-add">+</button>
+                </div>
+                <div class="param-panels"></div>
+            </div>
+        </div>
+        <div class="form-group">
+            <button class="toggle-pause-btn">Start</button>
+        </div>
+    </template>
+
+    <template id="param-panel-template">
+        <div class="param-panel">
+            <div class="param-row">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" class="param-randomize">
+                    <label>Rand</label>
+                </div>
+                <input type="text" class="form-control param-name-input" placeholder="Parameter name">
+                <div class="param-type-container hidden">
+                    <input type="text" class="form-control param-type-select" readonly placeholder="Select faker type">
+                    <div class="param-type-options hidden">
+                        <div class="faker-type-quick">
+                            <div class="faker-type-option" data-type="person.fullName">Full Name</div>
+                            <div class="faker-type-option" data-type="internet.email">Email</div>
+                            <div class="faker-type-option" data-type="string.uuid">UUID</div>
+                            <div class="faker-type-option" data-type="number.int">Number</div>
+                            <div class="faker-type-option" data-type="date.recent">Recent Date</div>
+                            <div class="faker-type-option" data-type="internet.userName">Username</div>
+                            <div class="faker-type-option" data-type="location.city">City</div>
+                            <div class="faker-type-option" data-type="company.name">Company</div>
+                            <div class="faker-type-option" data-type="phone.number">Phone</div>
+                            <div class="faker-type-option" data-type="internet.url">URL</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="param-values">
+                    <input type="text" class="form-control param-value-input" placeholder="{value1}{value2}...">
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="output-tab-template">
+        <div class="row">
+            <div class="form-group">
+                <label class="form-label">Topic</label>
+                <input type="text" class="form-control topic-input" placeholder="Enter topic name">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Broker Address</label>
+                <input type="text" class="form-control broker-input" placeholder="localhost:9092">
+            </div>
+        </div>
+        <div class="form-group">
+            <button class="toggle-connect-btn">Connect</button>
+        </div>
+        <div class="messages"></div>
+    </template>
+
+    <template id="tab-button-template">
+        <button class="tab-button">
+            <span>New Tab</span>
+            <div class="tab-close">×</div>
+        </button>
+    </template>
+
+    <div class="tab-container" id="inputTabContainer">
+        <div class="section-header">
+            <span class="section-arrow">▼</span>
+            <div class="section-title">Input Tabs</div>
+        </div>
+        <div class="section-content">
+            <div class="input-controls">
+                <label>Input Mode:</label>
+                <select class="input-mode-select">
+                    <option value="sequential">Sequential</option>
+                    <option value="parallel">Parallel</option>
+                </select>
+                <div class="global-controls">
+                    <button class="start-all-btn">Start All</button>
+                    <button class="stop-all-btn">Stop All</button>
+                </div>
+            </div>
+            <div class="tab-buttons" id="inputTabs">
+                <button class="tab-button active" data-tab="input1">
+                    <span>Input 1</span>
+                </button>
+                <button class="tab-button-add">+</button>
+            </div>
+            <div class="tab-contents">
+                <div id="input1" class="tab-content active">
+                    <div class="stream-controls">
+                        <div class="sleep-container">
+                            <label>Sleep (ms):</label>
+                            <input type="number" class="form-control sleep-input" min="0" value="0">
+                        </div>
+                        <div class="stop-after-container">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" class="stop-after-checkbox">
+                                <label>Stop after</label>
+                            </div>
+                            <input type="number" class="form-control stop-after-input" min="1" value="100">
+                            <label>events</label>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group">
+                            <label class="form-label">Topic</label>
+                            <input type="text" class="form-control topic-input" placeholder="Enter topic name">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Broker Address</label>
+                            <input type="text" class="form-control broker-input" placeholder="localhost:9092">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">JSON Template</label>
+                        <textarea class="form-control template-input" placeholder='{"key": "{{paramName}}"}' spellcheck="false"></textarea>
+                    </div>
+                    <div class="param-section">
+                        <div class="section-title">Parameters</div>
+                        <div class="param-content">
+                            <div class="param-tabs">
+                                <button class="param-tab-add">+</button>
+                            </div>
+                            <div class="param-panels"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button class="toggle-pause-btn">Start</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-container" id="outputTabContainer">
+        <div class="section-header">
+            <span class="section-arrow">▼</span>
+            <div class="section-title">Output Tabs</div>
+        </div>
+        <div class="section-content">
+            <div class="tab-buttons" id="outputTabs">
+                <button class="tab-button active" data-tab="output1">
+                    <span>Output 1</span>
+                </button>
+                <button class="tab-button-add">+</button>
+            </div>
+            <div class="tab-contents">
+                <div id="output1" class="tab-content active">
+                    <div class="row">
+                        <div class="form-group">
+                            <label class="form-label">Topic</label>
+                            <input type="text" class="form-control topic-input" placeholder="Enter topic name">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Broker Address</label>
+                            <input type="text" class="form-control broker-input" placeholder="localhost:9092">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button class="toggle-connect-btn">Connect</button>
+                    </div>
+                    <div class="messages"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const vscode = acquireVsCodeApi();
+            const state = {
+                fakerTypes: [],
+                tabs: {
+                    input: {},
+                    output: {}
+                }
+            };
+
+            // Request Faker types from extension
+            vscode.postMessage({ type: 'getFakerTypes' });
+
+            function setupTabs(containerId, templateId) {
+                const container = document.getElementById(containerId);
+                const tabButtons = container.querySelector('.tab-buttons');
+                const contents = container.querySelector('.tab-contents');
+                const addButton = container.querySelector('.tab-button-add');
+                let tabCounter = 1;
+
+                function createTabContent(tabId) {
+                    const content = document.createElement('div');
+                    content.id = tabId;
+                    content.className = 'tab-content';
+                    contents.appendChild(content);
+                    
+                    // Initialize tab content from template
+                    const template = document.getElementById(templateId);
+                    content.innerHTML = template.innerHTML;
+                    
+                    // Initialize tab state
+                    const tabType = containerId === 'inputTabContainer' ? 'input' : 'output';
+                    state.tabs[tabType][tabId] = {
+                        topic: '',
+                        broker: '',
+                        template: '',
+                        params: [],
+                        sleep: 0,
+                        stopAfter: {
+                            enabled: false,
+                            count: 100
+                        }
+                    };
+
+                    // Setup parameter handling for input tabs
+                    if (templateId === 'input-tab-template') {
+                        setupParameterHandling(content, tabId);
+                        setupStopAfterHandling(content);
+                    }
+
+                    // Setup input handlers
+                    setupInputHandlers(content, tabId);
+                    
+                    return content;
+                }
+
+                function setupTabButton(button, isNew = false) {
+                    const tabId = button.getAttribute('data-tab');
+                    const content = document.getElementById(tabId) || createTabContent(tabId);
+                    const tabName = button.querySelector('span');
+                    
+                    // Setup tab name editing
+                    tabName.addEventListener('dblclick', () => {
+                        tabName.contentEditable = true;
+                        tabName.focus();
+                    });
+
+                    tabName.addEventListener('blur', () => {
+                        tabName.contentEditable = false;
+                    });
+
+                    tabName.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            tabName.contentEditable = false;
+                        }
+                    });
+
+                    // Only add close button and functionality if not tab1
+                    if (!tabId.endsWith('1')) {
+                        const closeBtn = document.createElement('div');
+                        closeBtn.className = 'tab-close';
+                        closeBtn.textContent = '×';
+                        button.appendChild(closeBtn);
+
+                        closeBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const tabCount = tabButtons.querySelectorAll('.tab-button:not(.tab-button-add)').length;
+                            if (tabCount > 1) {
+                                const isActive = button.classList.contains('active');
+                                button.remove();
+                                content.remove();
+                                
+                                if (isActive) {
+                                    // Activate first remaining tab
+                                    const firstTab = tabButtons.querySelector('.tab-button:not(.tab-button-add)');
+                                    if (firstTab) {
+                                        activateTab(firstTab);
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // Setup tab switching
+                    button.addEventListener('click', () => {
+                        activateTab(button);
+                    });
+                }
+
+                function activateTab(button) {
+                    tabButtons.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    const tabId = button.getAttribute('data-tab');
+                    contents.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(tabId).classList.add('active');
+                }
+
+                // Setup existing tabs
+                tabButtons.querySelectorAll('.tab-button:not(.tab-button-add)').forEach(button => {
+                    setupTabButton(button);
+                });
+
+                // Get the current highest tab number
+                tabCounter = Math.max(...Array.from(tabButtons.querySelectorAll('.tab-button:not(.tab-button-add)')).map(button => {
+                    const match = button.getAttribute('data-tab').match(/\d+$/);
+                    return match ? parseInt(match[0]) : 0;
+                }), 0);
+
+                // Setup add button
+                addButton.addEventListener('click', () => {
+                    tabCounter++;
+                    const tabType = containerId === 'inputTabContainer' ? 'input' : 'output';
+                    const tabId = `${tabType}${tabCounter}`;
+                    
+                    const newButton = document.createElement('button');
+                    newButton.className = 'tab-button';
+                    newButton.setAttribute('data-tab', tabId);
+                    newButton.innerHTML = `<span>${tabType.charAt(0).toUpperCase() + tabType.slice(1)} ${tabCounter}</span>`;
+                    
+                    tabButtons.insertBefore(newButton, addButton);
+                    setupTabButton(newButton, true);
+                    activateTab(newButton);
+                });
+            }
+
+            function setupInputHandlers(content, tabId) {
+                const tabType = tabId.startsWith('input') ? 'input' : 'output';
+                const tabState = state.tabs[tabType][tabId];
+
+                const topicInput = content.querySelector('.topic-input');
+                const brokerInput = content.querySelector('.broker-input');
+                const templateInput = content.querySelector('.template-input');
+                const startBtn = content.querySelector('.toggle-pause-btn');
+
+                if (topicInput) {
+                    topicInput.value = tabState.topic;
+                    topicInput.addEventListener('input', e => {
+                        tabState.topic = e.target.value;
+                    });
+                }
+
+                if (brokerInput) {
+                    brokerInput.value = tabState.broker;
+                    brokerInput.addEventListener('input', e => {
+                        tabState.broker = e.target.value;
+                    });
+                }
+
+                if (templateInput) {
+                    templateInput.value = tabState.template;
+                    templateInput.addEventListener('input', e => {
+                        tabState.template = e.target.value;
+                    });
+                }
+
+                if (startBtn) {
+                    setupStartStopHandler(startBtn, tabId);
+                }
+            }
+
+            function setupParameterHandling(tabContent, tabId) {
+                const addBtn = tabContent.querySelector('.param-tab-add');
+                const paramTabs = tabContent.querySelector('.param-tabs');
+                const paramPanels = tabContent.querySelector('.param-panels');
+                
+                // Initialize counter based on existing parameters
+                let paramCounter = paramTabs.querySelectorAll('.param-tab:not(.param-tab-add)').length;
+
+                function createNewParameter() {
+                    paramCounter++;
+                    const paramId = `param-${Date.now()}-${paramCounter}`;
+                    
+                    // Create parameter tab
+                    const tab = document.createElement('div');
+                    tab.className = 'param-tab';
+                    tab.dataset.paramId = paramId;
+                    tab.innerHTML = `
+                        <span>Parameter ${paramCounter}</span>
+                        <button class="param-tab-close">×</button>
+                    `;
+                    paramTabs.insertBefore(tab, addBtn);
+
+                    // Create parameter panel
+                    const template = document.getElementById('param-panel-template');
+                    const panel = template.content.cloneNode(true).querySelector('.param-panel');
+                    panel.dataset.paramId = paramId;
+                    paramPanels.appendChild(panel);
+
+                    // Setup name input sync with tab
+                    const nameInput = panel.querySelector('.param-name-input');
+                    const tabName = tab.querySelector('span');
+                    nameInput.addEventListener('input', () => {
+                        tabName.textContent = nameInput.value || `Parameter ${paramCounter}`;
+                        updateParamState(panel.querySelector('.param-row'), tabId);
+                    });
+
+                    // Setup randomize checkbox behavior
+                    const randomizeCheckbox = panel.querySelector('.param-randomize');
+                    const typeContainer = panel.querySelector('.param-type-container');
+                    const paramValues = panel.querySelector('.param-values');
+                    const paramRow = panel.querySelector('.param-row');
+                    paramRow.dataset.paramId = paramId;
+
+                    randomizeCheckbox.addEventListener('change', () => {
+                        if (randomizeCheckbox.checked) {
+                            typeContainer.classList.remove('hidden');
+                            paramValues.classList.add('hidden');
+                        } else {
+                            typeContainer.classList.add('hidden');
+                            paramValues.classList.remove('hidden');
+                        }
+                        updateParamState(paramRow, tabId);
+                    });
+
+                    // Setup value input change handler
+                    const valueInput = panel.querySelector('.param-value-input');
+                    valueInput.addEventListener('input', () => {
+                        updateParamState(paramRow, tabId);
+                    });
+
+                    // Setup type select change handler
+                    const typeSelect = panel.querySelector('.param-type-select');
+                    typeSelect.addEventListener('change', () => {
+                        updateParamState(paramRow, tabId);
+                    });
+
+                    // Setup close button
+                    const closeBtn = tab.querySelector('.param-tab-close');
+                    closeBtn.addEventListener('click', (e => {
+                        e.stopPropagation();
+                        const paramId = tab.dataset.paramId;
+                        
+                        // Remove from state
+                        const tabState = state.tabs.input[tabId];
+                        if (tabState && tabState.params) {
+                            tabState.params = tabState.params.filter(p => p.id !== paramId);
+                        }
+                        
+                        // Remove from DOM
+                        tab.remove();
+                        panel.remove();
+                        
+                        // Activate first remaining parameter if removing active one
+                        if (tab.classList.contains('active')) {
+                            const firstTab = paramTabs.querySelector('.param-tab:not(.param-tab-add)');
+                            if (firstTab) {
+                                firstTab.click();
+                            }
+                        }
+                    }));
+
+                    // Setup tab switching
+                    tab.addEventListener('click', () => {
+                        // Hide all panels
+                        paramTabs.querySelectorAll('.param-tab').forEach(t => t.classList.remove('active'));
+                        paramPanels.querySelectorAll('.param-panel').forEach(p => {
+                            p.classList.remove('active');
+                            p.style.display = 'none';
+                        });
+                        
+                        // Show selected panel
+                        tab.classList.add('active');
+                        panel.classList.add('active');
+                        panel.style.display = 'block';
+                    });
+
+                    // Setup type selection
+                    setupTypeSelect(panel, tabId);
+
+                    // Activate the new tab
+                    tab.click();
+
+                    // Initialize state
+                    updateParamState(paramRow, tabId);
+                }
+
+                // Ensure the add button works
+                if (addBtn) {
+                    addBtn.addEventListener('click', createNewParameter);
+                }
+            }
+
+            function setupTypeSelect(row, tabId) {
+                const select = row.querySelector('.param-type-select');
+                const options = row.querySelector('.param-type-options');
+                const quickOptions = options.querySelectorAll('.faker-type-option');
+
+                select.addEventListener('click', () => {
+                    // Remove any existing options from body
+                    document.querySelectorAll('.param-type-options:not(.hidden)').forEach(opt => {
+                        opt.classList.add('hidden');
+                    });
+                    
+                    // Clone options and append to body
+                    const optionsClone = options.cloneNode(true);
+                    optionsClone.classList.remove('hidden');
+                    document.body.appendChild(optionsClone);
+                    
+                    // Setup click handlers for cloned options
+                    optionsClone.querySelectorAll('.faker-type-option').forEach(option => {
+                        option.addEventListener('click', () => {
+                            select.value = option.dataset.type;
+                            optionsClone.remove();
+                            updateParamState(row, tabId);
+                        });
+                    });
+                    
+                    // Close on click outside
+                    const closeHandler = (e) => {
+                        if (!optionsClone.contains(e.target) && e.target !== select) {
+                            optionsClone.remove();
+                            document.removeEventListener('click', closeHandler);
+                        }
+                    };
+                    document.addEventListener('click', closeHandler);
+                });
+            }
+
+            function updateParamState(row, tabId) {
+                const params = state.tabs.input[tabId].params;
+                const paramId = row.dataset.paramId;
+                
+                if (!paramId) {
+                    console.error('No paramId found for row:', row);
+                    return;
+                }
+
+                const nameInput = row.querySelector('.param-name-input');
+                const randomizeCheckbox = row.querySelector('.param-randomize');
+                const typeSelect = row.querySelector('.param-type-select');
+                const valueInput = row.querySelector('.param-value-input');
+                
+                const values = valueInput.value.match(/\{([^}]+)\}/g) || [];
+                const manualValues = values.map(v => v.slice(1, -1));
+
+                const param = {
+                    id: paramId,
+                    name: nameInput.value || `Parameter ${paramCounter}`,
+                    isRandomized: randomizeCheckbox.checked,
+                    type: typeSelect.value,
+                    manualValues: manualValues
+                };
+
+                const existingIndex = params.findIndex(p => p.id === paramId);
+                if (existingIndex >= 0) {
+                    params[existingIndex] = param;
+                } else {
+                    params.push(param);
+                }
+
+                vscode.postMessage({
+                    type: 'updateParam',
+                    data: { tabId, param }
+                });
+            }
+
+            // Initialize tabs
+            setupTabs('inputTabContainer', 'input-tab-template');
+            setupTabs('outputTabContainer', 'output-tab-template');
+
+            // Setup collapsible sections
+            document.querySelectorAll('.section-header').forEach(header => {
+                const arrow = header.querySelector('.section-arrow');
+                const content = header.nextElementSibling;
+                
+                if (header && arrow && content) {
+                    header.addEventListener('click', () => {
+                        arrow.classList.toggle('collapsed');
+                        content.classList.toggle('collapsed');
+                    });
+                }
+            });
+
+            // Setup stop-after functionality
+            function setupStopAfterHandling(container) {
+                const checkbox = container.querySelector('.stop-after-checkbox');
+                const input = container.querySelector('.stop-after-input');
+                
+                if (checkbox && input) {
+                    // Initial state
+                    input.disabled = !checkbox.checked;
+                    
+                    // Handle checkbox change
+                    checkbox.addEventListener('change', () => {
+                        input.disabled = !checkbox.checked;
+                        if (!input.disabled) {
+                            input.focus();
+                        }
+                    });
+
+                    // Handle input changes
+                    input.addEventListener('input', () => {
+                        const value = parseInt(input.value) || 100;
+                        input.value = value;
+                        if (tabId && state.tabs.input[tabId]) {
+                            state.tabs.input[tabId].stopAfter.count = value;
+                        }
+                    });
+                }
+            }
+
+            // Setup input mode handling
+            const inputModeSelect = document.querySelector('.input-mode-select');
+            if (inputModeSelect) {
+                inputModeSelect.addEventListener('change', () => {
+                    state.inputMode = inputModeSelect.value;
+                    vscode.postMessage({
+                        type: 'updateInputMode',
+                        data: { mode: inputModeSelect.value }
+                    });
+                });
+            }
+
+            // Initialize state for input tab 1
+            const input1Content = document.getElementById('input1');
+            if (input1Content) {
+                setupParameterHandling(input1Content, 'input1');
+                setupInputHandlers(input1Content, 'input1');
+                setupStopAfterHandling(input1Content);
+                
+                // Initialize state for input1
+                state.tabs.input['input1'] = {
+                    topic: '',
+                    broker: '',
+                    template: '',
+                    params: [],
+                    sleep: 0,
+                    stopAfter: {
+                        enabled: false,
+                        count: 100
+                    }
+                };
+            }
+
+            function updateTabState(tabContent, tabId) {
+                const tabType = tabId.startsWith('input') ? 'input' : 'output';
+                const tabState = state.tabs[tabType][tabId];
+                
+                if (tabType === 'input') {
+                    const sleepInput = tabContent.querySelector('.sleep-input');
+                    const stopAfterCheckbox = tabContent.querySelector('.stop-after-checkbox');
+                    const stopAfterInput = tabContent.querySelector('.stop-after-input');
+                    
+                    if (sleepInput) tabState.sleep = parseInt(sleepInput.value) || 0;
+                    if (stopAfterCheckbox && stopAfterInput) {
+                        tabState.stopAfter = {
+                            enabled: stopAfterCheckbox.checked,
+                            count: parseInt(stopAfterInput.value) || 100
+                        };
+                    }
+                }
+                
+                vscode.postMessage({
+                    type: 'updateTabState',
+                    data: { tabId, state: tabState }
+                });
+            }
+
+            // Handle messages from the extension
+            window.addEventListener('message', event => {
+                const message = event.data;
+                switch (message.type) {
+                    case 'updateFakerTypes':
+                        state.fakerTypes = message.types;
+                        break;
+                    case 'addOutput':
+                        const messages = document.querySelector(`#${message.tabId} .messages`);
+                        if (messages) {
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = 'message';
+                            messageDiv.textContent = message.text;
+                            messages.appendChild(messageDiv);
+                            messages.scrollTop = messages.scrollHeight;
+                        }
+                        break;
+                }
+            });
+
+            // Add export/import functionality
+            document.getElementById('exportBtn').addEventListener('click', () => {
+                const config = {
+                    tabs: state.tabs,
+                    useLocalBroker: document.getElementById('useLocalBroker').checked
+                };
+                
+                const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'kafka-tester-config.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+
+            document.getElementById('importBtn').addEventListener('click', () => {
+                document.getElementById('importInput').click();
+            });
+
+            document.getElementById('importInput').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const config = JSON.parse(event.target.result);
+                            
+                            // Update state
+                            state.tabs = config.tabs;
+                            
+                            // Update UI
+                            document.getElementById('useLocalBroker').checked = config.useLocalBroker;
+                            
+                            // Recreate input tabs
+                            const inputContainer = document.getElementById('inputTabContainer');
+                            recreateTabs(inputContainer, 'input', config.tabs.input);
+                            
+                            // Recreate output tabs
+                            const outputContainer = document.getElementById('outputTabContainer');
+                            recreateTabs(outputContainer, 'output', config.tabs.output);
+                            
+                            vscode.postMessage({
+                                type: 'configImported',
+                                data: config
+                            });
+                        } catch (error) {
+                            vscode.postMessage({
+                                type: 'error',
+                                message: 'Failed to parse configuration file'
+                            });
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            function recreateTabs(container, type, tabsData) {
+                const tabButtons = container.querySelector('.tab-buttons');
+                const contents = container.querySelector('.tab-contents');
+                const addButton = container.querySelector('.tab-button-add');
+                
+                // Clear existing tabs except add button
+                Array.from(tabButtons.children).forEach(child => {
+                    if (!child.classList.contains('tab-button-add')) {
+                        child.remove();
+                    }
+                });
+                contents.innerHTML = '';
+                
+                // Recreate tabs from config
+                Object.entries(tabsData).forEach(([tabId, tabData], index) => {
+                    const newButton = document.createElement('button');
+                    newButton.className = 'tab-button' + (index === 0 ? ' active' : '');
+                    newButton.setAttribute('data-tab', tabId);
+                    newButton.innerHTML = `<span>${tabId}</span>`;
+                    
+                    tabButtons.insertBefore(newButton, addButton);
+                    setupTabButton(newButton);
+                    
+                    const content = createTabContent(tabId);
+                    if (index === 0) {
+                        content.classList.add('active');
+                    }
+                    
+                    // Restore tab data
+                    const topicInput = content.querySelector('.topic-input');
+                    const brokerInput = content.querySelector('.broker-input');
+                    const templateInput = content.querySelector('.template-input');
+                    
+                    if (topicInput) topicInput.value = tabData.topic || '';
+                    if (brokerInput) brokerInput.value = tabData.broker || '';
+                    if (templateInput) templateInput.value = tabData.template || '';
+                    
+                    // Restore parameters if it's an input tab
+                    if (type === 'input' && tabData.params) {
+                        const paramTabs = content.querySelector('.param-tabs');
+                        const paramPanels = content.querySelector('.param-panels');
+                        
+                        tabData.params.forEach(param => {
+                            createParameter(paramTabs, paramPanels, param);
+                        });
+                    }
+                });
+            }
+
+            function createParameter(paramTabs, paramPanels, paramData) {
+                const paramId = paramData.id || `param-${Date.now()}-${paramTabs.children.length}`;
+                
+                // Create tab
+                const tab = document.createElement('div');
+                tab.className = 'param-tab';
+                tab.dataset.paramId = paramId;
+                tab.innerHTML = `
+                    <span>Parameter ${paramData.name || 'Parameter'}</span>
+                    <button class="param-tab-close">×</button>
+                `;
+                paramTabs.insertBefore(tab, paramTabs.querySelector('.param-tab-add'));
+
+                // Create panel
+                const template = document.getElementById('param-panel-template');
+                const panel = template.content.cloneNode(true).querySelector('.param-panel');
+                panel.dataset.paramId = paramId;
+                paramPanels.appendChild(panel);
+
+                // Set panel values
+                panel.querySelector('.param-randomize').checked = paramData.isRandomized;
+                panel.querySelector('.param-name-input').value = paramData.name || '';
+                panel.querySelector('.param-type-select').value = paramData.type || '';
+                panel.querySelector('.param-value-input').value = 
+                    paramData.manualValues ? paramData.manualValues.map(v => `{${v}}`).join('') : '';
+
+                setupParamPanel(panel, tab, paramData.tabId);
+                
+                // Show/hide type container based on randomize state
+                const typeContainer = panel.querySelector('.param-type-container');
+                const paramValues = panel.querySelector('.param-values');
+                if (paramData.isRandomized) {
+                    typeContainer.classList.remove('hidden');
+                    paramValues.classList.add('hidden');
+                }
+            }
+
+            // Setup global start/stop functionality
+            document.querySelector('.start-all-btn').addEventListener('click', () => {
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    const startBtn = tab.querySelector('.toggle-pause-btn');
+                    if (startBtn && startBtn.textContent === 'Start') {
+                        startBtn.click();
+                    }
+                });
+            });
+
+            document.querySelector('.stop-all-btn').addEventListener('click', () => {
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    const startBtn = tab.querySelector('.toggle-pause-btn');
+                    if (startBtn && startBtn.textContent === 'Stop') {
+                        startBtn.click();
+                    }
+                });
+            });
+
+            // Update individual tab start/stop button handler
+            function setupStartStopHandler(button, tabId) {
+                button.addEventListener('click', () => {
+                    const isRunning = button.textContent === 'Stop';
+                    button.textContent = isRunning ? 'Start' : 'Stop';
+                    vscode.postMessage({
+                        type: 'toggleStream',
+                        data: {
+                            tabId,
+                            isRunning: !isRunning,
+                            state: state.tabs.input[tabId]
+                        }
+                    });
+                });
+            }
+        }());
+    </script>
+</body>
+</html> 

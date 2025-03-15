@@ -1,0 +1,64 @@
+{
+  "name": "kafka-stream-tester",
+  "displayName": "Kafka Stream Tester",
+  "description": "A VS Code extension for testing Kafka Streams applications",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kafka-stream-tester.openInWindow",
+        "title": "Open Kafka Stream Tester in Window",
+        "icon": "$(window)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "kafkaStreamTester",
+          "name": "Kafka Stream Tester"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "kafka-stream-tester.openInWindow",
+          "when": "view == kafkaStreamTester",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./ && node copyAssets.js",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^8.3.1",
+    "kafkajs": "^2.2.4"
+  }
+}
