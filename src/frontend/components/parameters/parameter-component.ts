@@ -5,7 +5,7 @@
  */
 
 // Types
-interface Parameter {
+export interface Parameter {
   id: string;
   name: string;
   isRandom: boolean;
@@ -22,16 +22,26 @@ const FAKER_TYPES = [
   { value: 'company', label: 'Company' }
 ];
 
-class ParameterComponent extends HTMLElement {
-  // Private properties
+/**
+ * ParameterComponent - A web component for managing parameters
+ * 
+ * Features:
+ * - Tab-based interface for multiple parameters
+ * - Support for random values using faker types
+ * - Custom styling using VSCode theme variables
+ */
+export class ParameterComponent extends HTMLElement {
+  // DOM Elements
+  private tabContainer: HTMLDivElement;
+  private contentContainer: HTMLDivElement;
+  
+  // State
   private parameters: Parameter[] = [];
-  private tabContainer: HTMLDivElement = document.createElement('div');
-  private contentContainer: HTMLDivElement = document.createElement('div');
   private activeParameterId: string | null = null;
   private onParametersChange?: (parameters: Parameter[]) => void;
   
   // VSCode theme variables
-  private _vscode = {
+  private readonly theme = {
     background: 'var(--vscode-editor-background)',
     foreground: 'var(--vscode-foreground)',
     font: 'var(--vscode-font-family)',
@@ -52,18 +62,27 @@ class ParameterComponent extends HTMLElement {
     toolbarHoverBg: 'var(--vscode-toolbar-hoverBackground)',
   };
 
-  // Lifecycle methods
+  /**
+   * Constructor - Initialize the component
+   */
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
+    
+    // Initialize DOM elements
+    this.tabContainer = document.createElement('div');
+    this.contentContainer = document.createElement('div');
+    
     this.init();
   }
 
+  /**
+   * Connected callback - Called when the element is added to the DOM
+   */
   connectedCallback() {
     this.render();
   }
 
-  // Public API
   /**
    * Set a callback function to be called when parameters change
    */
@@ -86,35 +105,41 @@ class ParameterComponent extends HTMLElement {
     this.render();
   }
 
-  // Private methods
+  /**
+   * Initialize the component
+   */
   private init() {
     this.setupBaseStructure();
     this.setupStyles();
   }
 
-  private render() {
-    this.renderTabs();
-    if (this.activeParameterId) {
-      this.renderParameterContent(this.activeParameterId);
-    } else if (this.parameters.length > 0) {
-      this.activeParameterId = this.parameters[0].id;
-      this.renderParameterContent(this.activeParameterId);
-    } else {
-      this.contentContainer.innerHTML = '';
-    }
-  }
-
-  private notifyParametersChange() {
-    if (this.onParametersChange) {
-      this.onParametersChange([...this.parameters]);
-    }
-  }
-
+  /**
+   * Set up the base DOM structure
+   */
   private setupBaseStructure() {
     const wrapper = document.createElement('div');
     wrapper.className = 'parameter-wrapper';
 
     // Header section with title and add button
+    const header = this.createHeader();
+
+    // Tab container
+    this.tabContainer.className = 'tab-container';
+    
+    // Content container
+    this.contentContainer.className = 'content-container';
+
+    wrapper.appendChild(header);
+    wrapper.appendChild(this.tabContainer);
+    wrapper.appendChild(this.contentContainer);
+
+    this.shadowRoot!.appendChild(wrapper);
+  }
+
+  /**
+   * Create the header section with title and add button
+   */
+  private createHeader(): HTMLElement {
     const header = document.createElement('div');
     header.className = 'parameters-header';
     
@@ -129,208 +154,38 @@ class ParameterComponent extends HTMLElement {
 
     header.appendChild(heading);
     header.appendChild(addButton);
-
-    // Tab container
-    this.tabContainer = document.createElement('div');
-    this.tabContainer.className = 'tab-container';
     
-    // Content container
-    this.contentContainer = document.createElement('div');
-    this.contentContainer.className = 'content-container';
-
-    wrapper.appendChild(header);
-    wrapper.appendChild(this.tabContainer);
-    wrapper.appendChild(this.contentContainer);
-
-    this.shadowRoot!.appendChild(wrapper);
+    return header;
   }
 
+  /**
+   * Set up the component styles
+   */
   private setupStyles() {
     const style = document.createElement('style');
     style.textContent = this.getStyles();
     this.shadowRoot!.appendChild(style);
   }
 
-  private getStyles(): string {
-    return `
-      :host {
-        display: block;
-        font-family: ${this._vscode.font};
-        color: ${this._vscode.foreground};
-      }
-
-      .parameter-wrapper {
-        background: ${this._vscode.background};
-        border-radius: 4px;
-        padding: 12px;
-      }
-
-      .parameters-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-
-      .parameters-heading {
-        margin: 0;
-        font-size: ${this._vscode.fontSize};
-        font-weight: 600;
-        color: ${this._vscode.foreground};
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-
-      .add-parameter-btn {
-        padding: 3px 8px;
-        border: 1px solid ${this._vscode.buttonBorder};
-        border-radius: 2px;
-        background: ${this._vscode.buttonBg};
-        color: ${this._vscode.buttonFg};
-        font-size: ${this._vscode.fontSize};
-        cursor: pointer;
-      }
-
-      .add-parameter-btn:hover {
-        background: ${this._vscode.buttonHoverBg};
-      }
-
-      .tab-container {
-        display: flex;
-        gap: 4px;
-        margin-bottom: 12px;
-        flex-wrap: wrap;
-        border-bottom: 1px solid ${this._vscode.border};
-        padding-bottom: 8px;
-      }
-
-      .tab {
-        padding: 4px 8px;
-        border: 1px solid ${this._vscode.border};
-        border-radius: 3px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        background: ${this._vscode.background};
-        font-size: ${this._vscode.fontSize};
-        transition: all 0.1s ease;
-      }
-
-      .tab:hover {
-        background: ${this._vscode.listHoverBg};
-      }
-
-      .tab.active {
-        background: ${this._vscode.listActiveBg};
-        color: ${this._vscode.listActiveFg};
-      }
-
-      .tab-close {
-        border: none;
-        background: none;
-        cursor: pointer;
-        padding: 1px 4px;
-        border-radius: 2px;
-        color: ${this._vscode.iconFg};
-        font-size: 12px;
-        line-height: 1;
-      }
-
-      .tab-close:hover {
-        background: ${this._vscode.toolbarHoverBg};
-      }
-
-      .parameter-form {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 8px;
-        background: ${this._vscode.background};
-        border: 1px solid ${this._vscode.border};
-        border-radius: 3px;
-      }
-
-      .form-row {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        min-width: 0;
-      }
-
-      .form-row label {
-        font-size: ${this._vscode.fontSize};
-        color: ${this._vscode.foreground};
-        white-space: nowrap;
-      }
-
-      input[type="text"] {
-        flex: 1;
-        min-width: 0;
-        padding: 3px 6px;
-        border: 1px solid ${this._vscode.inputBorder};
-        border-radius: 2px;
-        font-size: ${this._vscode.fontSize};
-        background: ${this._vscode.inputBg};
-        color: ${this._vscode.inputFg};
-      }
-
-      input[type="text"]:focus {
-        outline: none;
-        border-color: ${this._vscode.focusBorder};
-      }
-
-      input[type="checkbox"] {
-        width: 14px;
-        height: 14px;
-        border: 1px solid ${this._vscode.border};
-        border-radius: 2px;
-        cursor: pointer;
-        background: ${this._vscode.inputBg};
-      }
-
-      select {
-        padding: 3px 6px;
-        border: 1px solid ${this._vscode.inputBorder};
-        border-radius: 2px;
-        background: ${this._vscode.inputBg};
-        color: ${this._vscode.inputFg};
-        font-size: ${this._vscode.fontSize};
-        min-width: 140px;
-        cursor: pointer;
-      }
-
-      select:focus {
-        outline: none;
-        border-color: ${this._vscode.focusBorder};
-      }
-
-      .values-input {
-        flex: 1;
-        min-width: 180px;
-      }
-
-      .faker-select {
-        min-width: 140px;
-      }
-    `;
-  }
-
-  private addParameter() {
-    const param: Parameter = {
-      id: crypto.randomUUID(),
-      name: `Parameter ${this.parameters.length + 1}`,
-      isRandom: false,
-      values: '',
-      fakerType: 'name'
-    };
+  /**
+   * Render the component
+   */
+  private render() {
+    this.renderTabs();
     
-    this.parameters.push(param);
-    this.activeParameterId = param.id;
-    this.render();
-    this.notifyParametersChange();
+    if (this.activeParameterId) {
+      this.renderParameterContent(this.activeParameterId);
+    } else if (this.parameters.length > 0) {
+      this.activeParameterId = this.parameters[0].id;
+      this.renderParameterContent(this.activeParameterId);
+    } else {
+      this.contentContainer.innerHTML = '';
+    }
   }
 
+  /**
+   * Render the tabs for each parameter
+   */
   private renderTabs() {
     this.tabContainer.innerHTML = '';
     
@@ -340,9 +195,13 @@ class ParameterComponent extends HTMLElement {
     });
   }
 
+  /**
+   * Create a tab element for a parameter
+   */
   private createTabElement(param: Parameter): HTMLElement {
     const tab = document.createElement('div');
     tab.className = `tab${param.id === this.activeParameterId ? ' active' : ''}`;
+    
     tab.innerHTML = `
       <span>${param.name}</span>
       <button class="tab-close">×</button>
@@ -363,6 +222,9 @@ class ParameterComponent extends HTMLElement {
     return tab;
   }
 
+  /**
+   * Render the content for a parameter
+   */
   private renderParameterContent(paramId: string) {
     const param = this.parameters.find(p => p.id === paramId);
     if (!param) return;
@@ -385,6 +247,9 @@ class ParameterComponent extends HTMLElement {
     this.contentContainer.appendChild(form);
   }
 
+  /**
+   * Create the name input field
+   */
   private createNameInput(param: Parameter): HTMLElement {
     const nameRow = document.createElement('div');
     nameRow.className = 'form-row';
@@ -393,15 +258,34 @@ class ParameterComponent extends HTMLElement {
       <input type="text" value="${param.name}" style="width: 120px;" />
     `;
     
-    nameRow.querySelector('input')?.addEventListener('input', (e) => {
-      param.name = (e.target as HTMLInputElement).value;
-      this.render();
-      this.notifyParametersChange();
-    });
+    const input = nameRow.querySelector('input');
+    if (input) {
+      // Update name in the parameter object on each keystroke
+      input.addEventListener('input', (e) => {
+        param.name = (e.target as HTMLInputElement).value;
+        // Don't re-render the tabs on every keystroke
+        this.notifyParametersChange();
+      });
+      
+      // Update the UI only when the input loses focus or Enter is pressed
+      input.addEventListener('blur', () => {
+        this.renderTabs();
+      });
+      
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          this.renderTabs();
+          input.blur();
+        }
+      });
+    }
     
     return nameRow;
   }
 
+  /**
+   * Create the random checkbox
+   */
   private createRandomCheckbox(param: Parameter): HTMLElement {
     const randomRow = document.createElement('div');
     randomRow.className = 'form-row';
@@ -419,6 +303,9 @@ class ParameterComponent extends HTMLElement {
     return randomRow;
   }
 
+  /**
+   * Create the faker type select field
+   */
   private createFakerTypeSelect(param: Parameter): HTMLElement {
     const fakerRow = document.createElement('div');
     fakerRow.className = 'form-row';
@@ -441,6 +328,9 @@ class ParameterComponent extends HTMLElement {
     return fakerRow;
   }
 
+  /**
+   * Create the values input field
+   */
   private createValuesInput(param: Parameter): HTMLElement {
     const valuesRow = document.createElement('div');
     valuesRow.className = 'form-row';
@@ -457,6 +347,27 @@ class ParameterComponent extends HTMLElement {
     return valuesRow;
   }
 
+  /**
+   * Add a new parameter
+   */
+  private addParameter() {
+    const param: Parameter = {
+      id: crypto.randomUUID(),
+      name: `Parameter ${this.parameters.length + 1}`,
+      isRandom: false,
+      values: '',
+      fakerType: 'name'
+    };
+    
+    this.parameters.push(param);
+    this.activeParameterId = param.id;
+    this.render();
+    this.notifyParametersChange();
+  }
+
+  /**
+   * Remove a parameter
+   */
   private removeParameter(paramId: string) {
     const index = this.parameters.findIndex(p => p.id === paramId);
     if (index !== -1) {
@@ -470,6 +381,183 @@ class ParameterComponent extends HTMLElement {
       this.render();
       this.notifyParametersChange();
     }
+  }
+
+  /**
+   * Notify that parameters have changed
+   */
+  private notifyParametersChange() {
+    if (this.onParametersChange) {
+      this.onParametersChange([...this.parameters]);
+    }
+  }
+
+  /**
+   * Get the component styles
+   */
+  private getStyles(): string {
+    return `
+      :host {
+        display: block;
+        font-family: ${this.theme.font};
+        color: ${this.theme.foreground};
+      }
+
+      .parameter-wrapper {
+        background: ${this.theme.background};
+        border-radius: 4px;
+        padding: 12px;
+      }
+
+      .parameters-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .parameters-heading {
+        margin: 0;
+        font-size: ${this.theme.fontSize};
+        font-weight: 600;
+        color: ${this.theme.foreground};
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .add-parameter-btn {
+        padding: 3px 8px;
+        border: 1px solid ${this.theme.buttonBorder};
+        border-radius: 2px;
+        background: ${this.theme.buttonBg};
+        color: ${this.theme.buttonFg};
+        font-size: ${this.theme.fontSize};
+        cursor: pointer;
+      }
+
+      .add-parameter-btn:hover {
+        background: ${this.theme.buttonHoverBg};
+      }
+
+      .tab-container {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid ${this.theme.border};
+        padding-bottom: 8px;
+      }
+
+      .tab {
+        padding: 4px 8px;
+        border: 1px solid ${this.theme.border};
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: ${this.theme.background};
+        font-size: ${this.theme.fontSize};
+        transition: all 0.1s ease;
+      }
+
+      .tab:hover {
+        background: ${this.theme.listHoverBg};
+      }
+
+      .tab.active {
+        background: ${this.theme.listActiveBg};
+        color: ${this.theme.listActiveFg};
+      }
+
+      .tab-close {
+        border: none;
+        background: none;
+        cursor: pointer;
+        padding: 1px 4px;
+        border-radius: 2px;
+        color: ${this.theme.iconFg};
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .tab-close:hover {
+        background: ${this.theme.toolbarHoverBg};
+      }
+
+      .parameter-form {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+        background: ${this.theme.background};
+        border: 1px solid ${this.theme.border};
+        border-radius: 3px;
+      }
+
+      .form-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .form-row label {
+        font-size: ${this.theme.fontSize};
+        color: ${this.theme.foreground};
+        white-space: nowrap;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        min-width: 0;
+        padding: 3px 6px;
+        border: 1px solid ${this.theme.inputBorder};
+        border-radius: 2px;
+        font-size: ${this.theme.fontSize};
+        background: ${this.theme.inputBg};
+        color: ${this.theme.inputFg};
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: ${this.theme.focusBorder};
+      }
+
+      input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        border: 1px solid ${this.theme.border};
+        border-radius: 2px;
+        cursor: pointer;
+        background: ${this.theme.inputBg};
+      }
+
+      select {
+        padding: 3px 6px;
+        border: 1px solid ${this.theme.inputBorder};
+        border-radius: 2px;
+        background: ${this.theme.inputBg};
+        color: ${this.theme.inputFg};
+        font-size: ${this.theme.fontSize};
+        min-width: 140px;
+        cursor: pointer;
+      }
+
+      select:focus {
+        outline: none;
+        border-color: ${this.theme.focusBorder};
+      }
+
+      .values-input {
+        flex: 1;
+        min-width: 180px;
+      }
+
+      .faker-select {
+        min-width: 140px;
+      }
+    `;
   }
 }
 
