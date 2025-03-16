@@ -212,15 +212,7 @@ export class InputComponent extends HTMLElement {
             </div>
 
             <div class="param-section">
-                <div class="section-title">Parameters</div>
-                <div class="param-content">
-                    <div class="param-tabs">
-                        <button class="param-tab-add">+</button>
-                    </div>
-                    <div class="param-panels">
-                        ${this._parameters.map(param => this.renderParameter(param)).join('')}
-                    </div>
-                </div>
+                <parameter-component></parameter-component>
             </div>
 
             <div class="form-group">

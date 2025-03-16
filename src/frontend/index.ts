@@ -2,6 +2,7 @@
 import './components/header/header-component.js';
 import './components/input/input-component.js';
 import './components/output/output-component.js';
+import './components/parameters/parameter-component.js';
 
 // Initialize VS Code API
 declare global {

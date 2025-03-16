@@ -461,4 +461,4 @@ export class ParameterComponent extends HTMLElement {
     }
 }
 
-customElements.define('parameter-manager', ParameterComponent); 
+customElements.define('parameter-component', ParameterComponent); 
