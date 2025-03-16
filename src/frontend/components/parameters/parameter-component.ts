@@ -1,464 +1,477 @@
+/**
+ * Parameter Component
+ * 
+ * A web component for managing parameters with support for random values and faker types.
+ */
+
+// Types
 interface Parameter {
-    id: string;
-    name: string;
-    type: string;
-    value: any;
-    description?: string;
-    defaultValue?: any;
-    required?: boolean;
+  id: string;
+  name: string;
+  isRandom: boolean;
+  values: string;
+  fakerType: string;
 }
 
-export class ParameterComponent extends HTMLElement {
-    private _parameters: Parameter[] = [];
-    private _activeTabId: string | null = null;
-    private _vscode: any;
+// Constants
+const FAKER_TYPES = [
+  { value: 'name', label: 'Name' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'address', label: 'Address' },
+  { value: 'company', label: 'Company' }
+];
 
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
+class ParameterComponent extends HTMLElement {
+  // Private properties
+  private parameters: Parameter[] = [];
+  private tabContainer: HTMLDivElement = document.createElement('div');
+  private contentContainer: HTMLDivElement = document.createElement('div');
+  private activeParameterId: string | null = null;
+  private onParametersChange?: (parameters: Parameter[]) => void;
+  
+  // VSCode theme variables
+  private _vscode = {
+    background: 'var(--vscode-editor-background)',
+    foreground: 'var(--vscode-foreground)',
+    font: 'var(--vscode-font-family)',
+    fontSize: 'var(--vscode-font-size)',
+    border: 'var(--vscode-widget-border)',
+    inputBg: 'var(--vscode-input-background)',
+    inputFg: 'var(--vscode-input-foreground)',
+    inputBorder: 'var(--vscode-input-border)',
+    buttonBg: 'var(--vscode-button-background)',
+    buttonFg: 'var(--vscode-button-foreground)',
+    buttonBorder: 'var(--vscode-button-border)',
+    buttonHoverBg: 'var(--vscode-button-hoverBackground)',
+    listHoverBg: 'var(--vscode-list-hoverBackground)',
+    listActiveBg: 'var(--vscode-list-activeSelectionBackground)',
+    listActiveFg: 'var(--vscode-list-activeSelectionForeground)',
+    focusBorder: 'var(--vscode-focusBorder)',
+    iconFg: 'var(--vscode-icon-foreground)',
+    toolbarHoverBg: 'var(--vscode-toolbar-hoverBackground)',
+  };
+
+  // Lifecycle methods
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.init();
+  }
+
+  connectedCallback() {
+    this.render();
+  }
+
+  // Public API
+  /**
+   * Set a callback function to be called when parameters change
+   */
+  set parametersCallback(callback: (parameters: Parameter[]) => void) {
+    this.onParametersChange = callback;
+  }
+
+  /**
+   * Get the current parameters
+   */
+  getParameters(): Parameter[] {
+    return [...this.parameters];
+  }
+
+  /**
+   * Set parameters from outside
+   */
+  setParameters(parameters: Parameter[]) {
+    this.parameters = [...parameters];
+    this.render();
+  }
+
+  // Private methods
+  private init() {
+    this.setupBaseStructure();
+    this.setupStyles();
+  }
+
+  private render() {
+    this.renderTabs();
+    if (this.activeParameterId) {
+      this.renderParameterContent(this.activeParameterId);
+    } else if (this.parameters.length > 0) {
+      this.activeParameterId = this.parameters[0].id;
+      this.renderParameterContent(this.activeParameterId);
+    } else {
+      this.contentContainer.innerHTML = '';
     }
+  }
 
-    connectedCallback() {
+  private notifyParametersChange() {
+    if (this.onParametersChange) {
+      this.onParametersChange([...this.parameters]);
+    }
+  }
+
+  private setupBaseStructure() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'parameter-wrapper';
+
+    // Header section with title and add button
+    const header = document.createElement('div');
+    header.className = 'parameters-header';
+    
+    const heading = document.createElement('h2');
+    heading.textContent = 'Parameters';
+    heading.className = 'parameters-heading';
+
+    const addButton = document.createElement('button');
+    addButton.textContent = '+ Add Parameter';
+    addButton.className = 'add-parameter-btn';
+    addButton.addEventListener('click', () => this.addParameter());
+
+    header.appendChild(heading);
+    header.appendChild(addButton);
+
+    // Tab container
+    this.tabContainer = document.createElement('div');
+    this.tabContainer.className = 'tab-container';
+    
+    // Content container
+    this.contentContainer = document.createElement('div');
+    this.contentContainer.className = 'content-container';
+
+    wrapper.appendChild(header);
+    wrapper.appendChild(this.tabContainer);
+    wrapper.appendChild(this.contentContainer);
+
+    this.shadowRoot!.appendChild(wrapper);
+  }
+
+  private setupStyles() {
+    const style = document.createElement('style');
+    style.textContent = this.getStyles();
+    this.shadowRoot!.appendChild(style);
+  }
+
+  private getStyles(): string {
+    return `
+      :host {
+        display: block;
+        font-family: ${this._vscode.font};
+        color: ${this._vscode.foreground};
+      }
+
+      .parameter-wrapper {
+        background: ${this._vscode.background};
+        border-radius: 4px;
+        padding: 12px;
+      }
+
+      .parameters-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .parameters-heading {
+        margin: 0;
+        font-size: ${this._vscode.fontSize};
+        font-weight: 600;
+        color: ${this._vscode.foreground};
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .add-parameter-btn {
+        padding: 3px 8px;
+        border: 1px solid ${this._vscode.buttonBorder};
+        border-radius: 2px;
+        background: ${this._vscode.buttonBg};
+        color: ${this._vscode.buttonFg};
+        font-size: ${this._vscode.fontSize};
+        cursor: pointer;
+      }
+
+      .add-parameter-btn:hover {
+        background: ${this._vscode.buttonHoverBg};
+      }
+
+      .tab-container {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid ${this._vscode.border};
+        padding-bottom: 8px;
+      }
+
+      .tab {
+        padding: 4px 8px;
+        border: 1px solid ${this._vscode.border};
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: ${this._vscode.background};
+        font-size: ${this._vscode.fontSize};
+        transition: all 0.1s ease;
+      }
+
+      .tab:hover {
+        background: ${this._vscode.listHoverBg};
+      }
+
+      .tab.active {
+        background: ${this._vscode.listActiveBg};
+        color: ${this._vscode.listActiveFg};
+      }
+
+      .tab-close {
+        border: none;
+        background: none;
+        cursor: pointer;
+        padding: 1px 4px;
+        border-radius: 2px;
+        color: ${this._vscode.iconFg};
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .tab-close:hover {
+        background: ${this._vscode.toolbarHoverBg};
+      }
+
+      .parameter-form {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+        background: ${this._vscode.background};
+        border: 1px solid ${this._vscode.border};
+        border-radius: 3px;
+      }
+
+      .form-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .form-row label {
+        font-size: ${this._vscode.fontSize};
+        color: ${this._vscode.foreground};
+        white-space: nowrap;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        min-width: 0;
+        padding: 3px 6px;
+        border: 1px solid ${this._vscode.inputBorder};
+        border-radius: 2px;
+        font-size: ${this._vscode.fontSize};
+        background: ${this._vscode.inputBg};
+        color: ${this._vscode.inputFg};
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: ${this._vscode.focusBorder};
+      }
+
+      input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        border: 1px solid ${this._vscode.border};
+        border-radius: 2px;
+        cursor: pointer;
+        background: ${this._vscode.inputBg};
+      }
+
+      select {
+        padding: 3px 6px;
+        border: 1px solid ${this._vscode.inputBorder};
+        border-radius: 2px;
+        background: ${this._vscode.inputBg};
+        color: ${this._vscode.inputFg};
+        font-size: ${this._vscode.fontSize};
+        min-width: 140px;
+        cursor: pointer;
+      }
+
+      select:focus {
+        outline: none;
+        border-color: ${this._vscode.focusBorder};
+      }
+
+      .values-input {
+        flex: 1;
+        min-width: 180px;
+      }
+
+      .faker-select {
+        min-width: 140px;
+      }
+    `;
+  }
+
+  private addParameter() {
+    const param: Parameter = {
+      id: crypto.randomUUID(),
+      name: `Parameter ${this.parameters.length + 1}`,
+      isRandom: false,
+      values: '',
+      fakerType: 'name'
+    };
+    
+    this.parameters.push(param);
+    this.activeParameterId = param.id;
+    this.render();
+    this.notifyParametersChange();
+  }
+
+  private renderTabs() {
+    this.tabContainer.innerHTML = '';
+    
+    this.parameters.forEach(param => {
+      const tab = this.createTabElement(param);
+      this.tabContainer.appendChild(tab);
+    });
+  }
+
+  private createTabElement(param: Parameter): HTMLElement {
+    const tab = document.createElement('div');
+    tab.className = `tab${param.id === this.activeParameterId ? ' active' : ''}`;
+    tab.innerHTML = `
+      <span>${param.name}</span>
+      <button class="tab-close">×</button>
+    `;
+
+    tab.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).matches('.tab-close')) {
+        this.activeParameterId = param.id;
         this.render();
+      }
+    });
+
+    tab.querySelector('.tab-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.removeParameter(param.id);
+    });
+
+    return tab;
+  }
+
+  private renderParameterContent(paramId: string) {
+    const param = this.parameters.find(p => p.id === paramId);
+    if (!param) return;
+
+    this.contentContainer.innerHTML = '';
+    const form = document.createElement('div');
+    form.className = 'parameter-form';
+
+    // Add form rows
+    form.appendChild(this.createNameInput(param));
+    form.appendChild(this.createRandomCheckbox(param));
+    
+    // Conditional inputs based on random checkbox
+    if (param.isRandom) {
+      form.appendChild(this.createFakerTypeSelect(param));
+    } else {
+      form.appendChild(this.createValuesInput(param));
     }
 
-    set parameters(value: Parameter[]) {
-        this._parameters = value;
-        this.render();
+    this.contentContainer.appendChild(form);
+  }
+
+  private createNameInput(param: Parameter): HTMLElement {
+    const nameRow = document.createElement('div');
+    nameRow.className = 'form-row';
+    nameRow.innerHTML = `
+      <label>Name:</label>
+      <input type="text" value="${param.name}" style="width: 120px;" />
+    `;
+    
+    nameRow.querySelector('input')?.addEventListener('input', (e) => {
+      param.name = (e.target as HTMLInputElement).value;
+      this.render();
+      this.notifyParametersChange();
+    });
+    
+    return nameRow;
+  }
+
+  private createRandomCheckbox(param: Parameter): HTMLElement {
+    const randomRow = document.createElement('div');
+    randomRow.className = 'form-row';
+    randomRow.innerHTML = `
+      <label>Random:</label>
+      <input type="checkbox" ${param.isRandom ? 'checked' : ''} />
+    `;
+    
+    randomRow.querySelector('input')?.addEventListener('change', (e) => {
+      param.isRandom = (e.target as HTMLInputElement).checked;
+      this.render();
+      this.notifyParametersChange();
+    });
+    
+    return randomRow;
+  }
+
+  private createFakerTypeSelect(param: Parameter): HTMLElement {
+    const fakerRow = document.createElement('div');
+    fakerRow.className = 'form-row';
+    
+    let optionsHtml = '';
+    FAKER_TYPES.forEach(type => {
+      optionsHtml += `<option value="${type.value}" ${param.fakerType === type.value ? 'selected' : ''}>${type.label}</option>`;
+    });
+    
+    fakerRow.innerHTML = `
+      <label>Faker Type:</label>
+      <select class="faker-select">${optionsHtml}</select>
+    `;
+    
+    fakerRow.querySelector('select')?.addEventListener('change', (e) => {
+      param.fakerType = (e.target as HTMLSelectElement).value;
+      this.notifyParametersChange();
+    });
+    
+    return fakerRow;
+  }
+
+  private createValuesInput(param: Parameter): HTMLElement {
+    const valuesRow = document.createElement('div');
+    valuesRow.className = 'form-row';
+    valuesRow.innerHTML = `
+      <label>Values:</label>
+      <input type="text" class="values-input" placeholder="{value1}{value2}" value="${param.values}" />
+    `;
+    
+    valuesRow.querySelector('input')?.addEventListener('input', (e) => {
+      param.values = (e.target as HTMLInputElement).value;
+      this.notifyParametersChange();
+    });
+    
+    return valuesRow;
+  }
+
+  private removeParameter(paramId: string) {
+    const index = this.parameters.findIndex(p => p.id === paramId);
+    if (index !== -1) {
+      this.parameters.splice(index, 1);
+      
+      // Update active parameter
+      if (this.activeParameterId === paramId) {
+        this.activeParameterId = this.parameters.length > 0 ? this.parameters[0].id : null;
+      }
+      
+      this.render();
+      this.notifyParametersChange();
     }
-
-    get parameters(): Parameter[] {
-        return this._parameters;
-    }
-
-    addParameter(parameter: Parameter) {
-        this._parameters.push(parameter);
-        this._activeTabId = parameter.id;
-        this.render();
-    }
-
-    updateParameter(id: string, updates: Partial<Parameter>) {
-        const parameter = this._parameters.find(p => p.id === id);
-        if (parameter) {
-            Object.assign(parameter, updates);
-            this.render();
-        }
-    }
-
-    removeParameter(id: string) {
-        this._parameters = this._parameters.filter(p => p.id !== id);
-        if (this._activeTabId === id) {
-            this._activeTabId = this._parameters.length > 0 ? this._parameters[0].id : null;
-        }
-        this.render();
-    }
-
-    private render() {
-        if (!this.shadowRoot) return;
-
-        const styles = `
-            :host {
-                display: block;
-                height: 100%;
-                background-color: var(--vscode-editor-background);
-                color: var(--vscode-editor-foreground);
-                font-family: var(--vscode-font-family);
-            }
-
-            .parameter-container {
-                display: flex;
-                flex-direction: column;
-                height: 100%;
-                border-radius: var(--border-radius, 4px);
-                overflow: hidden;
-            }
-
-            .tabs {
-                display: flex;
-                padding: 8px 8px 0;
-                background-color: var(--vscode-tab-inactiveBackground);
-                border-bottom: 1px solid var(--vscode-tab-border);
-                overflow-x: auto;
-                scrollbar-width: thin;
-            }
-
-            .tab {
-                padding: 8px 16px;
-                cursor: pointer;
-                border: 1px solid var(--vscode-tab-border);
-                border-bottom: none;
-                border-radius: 4px 4px 0 0;
-                margin-right: 4px;
-                background-color: var(--vscode-tab-inactiveBackground);
-                color: var(--vscode-tab-inactiveForeground);
-                opacity: 0.8;
-                transition: all 0.2s ease;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                min-width: 100px;
-                justify-content: space-between;
-            }
-
-            .tab.active {
-                opacity: 1;
-                background-color: var(--vscode-tab-activeBackground);
-                color: var(--vscode-tab-activeForeground);
-                border-color: var(--vscode-focusBorder);
-                position: relative;
-            }
-
-            .tab.active::after {
-                content: '';
-                position: absolute;
-                bottom: -1px;
-                left: 0;
-                right: 0;
-                height: 1px;
-                background-color: var(--vscode-tab-activeBackground);
-            }
-
-            .tab:hover:not(.active) {
-                opacity: 0.9;
-                background-color: var(--vscode-tab-hoverBackground, rgba(255,255,255,0.1));
-            }
-
-            .close-button {
-                width: 16px;
-                height: 16px;
-                border: none;
-                background: none;
-                color: inherit;
-                cursor: pointer;
-                padding: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                opacity: 0.7;
-                font-size: 16px;
-                border-radius: 50%;
-            }
-
-            .close-button:hover {
-                opacity: 1;
-                background-color: rgba(255, 255, 255, 0.1);
-            }
-
-            .add-tab {
-                padding: 8px;
-                background: none;
-                border: none;
-                color: var(--vscode-button-foreground);
-                cursor: pointer;
-                opacity: 0.7;
-                transition: opacity 0.2s ease;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 16px;
-                border-radius: 4px;
-            }
-
-            .add-tab:hover {
-                opacity: 1;
-                background-color: var(--vscode-button-hoverBackground);
-            }
-
-            .content {
-                flex: 1;
-                padding: 16px;
-                overflow: auto;
-                background-color: var(--vscode-editor-background);
-            }
-
-            .parameter-form {
-                display: flex;
-                flex-direction: column;
-                gap: 16px;
-            }
-
-            .form-group {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-            }
-
-            .form-row {
-                display: flex;
-                gap: 16px;
-            }
-
-            .form-row .form-group {
-                flex: 1;
-            }
-
-            label {
-                color: var(--vscode-foreground);
-                font-size: 0.9em;
-            }
-
-            input, select, textarea {
-                padding: 8px;
-                background: var(--vscode-input-background);
-                color: var(--vscode-input-foreground);
-                border: 1px solid var(--vscode-input-border);
-                border-radius: 4px;
-                font-family: var(--vscode-font-family);
-            }
-
-            input:focus, select:focus, textarea:focus {
-                outline: 1px solid var(--vscode-focusBorder);
-                border-color: var(--vscode-focusBorder);
-            }
-
-            textarea {
-                min-height: 80px;
-                resize: vertical;
-            }
-
-            .checkbox-group {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            .checkbox-group input {
-                width: auto;
-            }
-
-            .empty-state {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                height: 100%;
-                gap: 16px;
-                color: var(--vscode-descriptionForeground);
-                padding: 40px;
-                text-align: center;
-            }
-
-            .empty-state-icon {
-                font-size: 48px;
-                opacity: 0.5;
-            }
-
-            .empty-state-title {
-                font-size: 1.2em;
-                margin-bottom: 8px;
-            }
-
-            .empty-state-description {
-                font-size: 0.9em;
-                opacity: 0.8;
-            }
-
-            .button {
-                padding: 8px 16px;
-                background-color: var(--vscode-button-background);
-                color: var(--vscode-button-foreground);
-                border: 1px solid var(--vscode-button-border);
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 0.9em;
-                transition: all 0.2s ease;
-            }
-
-            .button:hover {
-                background-color: var(--vscode-button-hoverBackground);
-            }
-        `;
-
-        this.shadowRoot.innerHTML = `
-            <style>${styles}</style>
-            <div class="parameter-container">
-                <div class="tabs">
-                    ${this._parameters.map(param => `
-                        <div class="tab ${param.id === this._activeTabId ? 'active' : ''}" data-param-id="${param.id}">
-                            <span>${param.name || 'Unnamed Parameter'}</span>
-                            <button class="close-button" data-param-id="${param.id}" title="Remove parameter">×</button>
-                        </div>
-                    `).join('')}
-                    <button class="add-tab" title="Add new parameter">+</button>
-                </div>
-                <div class="content">
-                    ${this._parameters.length === 0 ? `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">⚙️</div>
-                            <div class="empty-state-title">No parameters configured</div>
-                            <div class="empty-state-description">Add parameters to configure your Kafka stream</div>
-                            <button class="button add-parameter-button">Add Parameter</button>
-                        </div>
-                    ` : this._activeTabId ? `
-                        <div class="parameter-form">
-                            ${this.renderParameterForm(this._parameters.find(p => p.id === this._activeTabId)!)}
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-
-        // Add event listeners
-        this.addEventListeners();
-    }
-
-    private renderParameterForm(parameter: Parameter) {
-        return `
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input type="text" id="name" value="${parameter.name || ''}" placeholder="Parameter name">
-                </div>
-                <div class="form-group">
-                    <label for="type">Type</label>
-                    <select id="type">
-                        <option value="string" ${parameter.type === 'string' ? 'selected' : ''}>String</option>
-                        <option value="number" ${parameter.type === 'number' ? 'selected' : ''}>Number</option>
-                        <option value="boolean" ${parameter.type === 'boolean' ? 'selected' : ''}>Boolean</option>
-                        <option value="json" ${parameter.type === 'json' ? 'selected' : ''}>JSON</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="description">Description</label>
-                <textarea id="description" placeholder="Parameter description">${parameter.description || ''}</textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="value">Value</label>
-                ${this.renderValueInput(parameter)}
-            </div>
-
-            <div class="form-group">
-                <label for="defaultValue">Default Value</label>
-                <input type="text" id="defaultValue" value="${parameter.defaultValue || ''}" placeholder="Default value">
-            </div>
-
-            <div class="form-group checkbox-group">
-                <input type="checkbox" id="required" ${parameter.required ? 'checked' : ''}>
-                <label for="required">Required</label>
-            </div>
-        `;
-    }
-
-    private renderValueInput(parameter: Parameter) {
-        switch (parameter.type) {
-            case 'boolean':
-                return `
-                    <select id="value">
-                        <option value="true" ${parameter.value === true ? 'selected' : ''}>True</option>
-                        <option value="false" ${parameter.value === false ? 'selected' : ''}>False</option>
-                    </select>
-                `;
-            case 'number':
-                return `
-                    <input type="number" id="value" value="${parameter.value || ''}" placeholder="Parameter value">
-                `;
-            case 'json':
-                return `
-                    <textarea id="value" placeholder="JSON value">${
-                        typeof parameter.value === 'object' 
-                            ? JSON.stringify(parameter.value, null, 2) 
-                            : parameter.value || ''
-                    }</textarea>
-                `;
-            default:
-                return `
-                    <input type="text" id="value" value="${parameter.value || ''}" placeholder="Parameter value">
-                `;
-        }
-    }
-
-    private addEventListeners() {
-        // Tab click events
-        this.shadowRoot?.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                const paramId = (e.currentTarget as HTMLElement).dataset.paramId;
-                if (paramId) {
-                    this._activeTabId = paramId;
-                    this.render();
-                }
-            });
-        });
-
-        // Close button events
-        this.shadowRoot?.querySelectorAll('.close-button').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const paramId = (e.currentTarget as HTMLElement).dataset.paramId;
-                if (paramId) {
-                    this.removeParameter(paramId);
-                }
-            });
-        });
-
-        // Add tab button event
-        const addButtons = [
-            this.shadowRoot?.querySelector('.add-tab'),
-            this.shadowRoot?.querySelector('.add-parameter-button')
-        ];
-        
-        addButtons.forEach(button => {
-            button?.addEventListener('click', () => {
-                const newParam: Parameter = {
-                    id: `param-${Date.now()}`,
-                    name: 'New Parameter',
-                    type: 'string',
-                    value: '',
-                    required: false
-                };
-                this.addParameter(newParam);
-            });
-        });
-
-        // Form input events
-        this.shadowRoot?.querySelectorAll('input, select, textarea').forEach(input => {
-            input.addEventListener('change', (e) => {
-                const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-                let value: any = target.value;
-
-                // Handle special cases
-                if (target.id === 'type') {
-                    // Reset value when type changes
-                    this.updateParameter(this._activeTabId!, { 
-                        type: value as any,
-                        value: this.getDefaultValueForType(value)
-                    });
-                    return;
-                } else if (target.id === 'value' && this._parameters.find(p => p.id === this._activeTabId)?.type === 'json') {
-                    try {
-                        value = JSON.parse(value);
-                    } catch (error) {
-                        // Invalid JSON, keep as string
-                    }
-                } else if (target.id === 'value' && this._parameters.find(p => p.id === this._activeTabId)?.type === 'number') {
-                    value = parseFloat(value);
-                } else if (target.id === 'value' && this._parameters.find(p => p.id === this._activeTabId)?.type === 'boolean') {
-                    value = value === 'true';
-                } else if (target.type === 'checkbox') {
-                    value = (target as HTMLInputElement).checked;
-                }
-
-                this.updateParameter(this._activeTabId!, { [target.id]: value });
-            });
-        });
-    }
-
-    private getDefaultValueForType(type: string): any {
-        switch (type) {
-            case 'string':
-                return '';
-            case 'number':
-                return 0;
-            case 'boolean':
-                return false;
-            case 'json':
-                return {};
-            default:
-                return '';
-        }
-    }
+  }
 }
 
+// Register the custom element
 customElements.define('parameter-component', ParameterComponent); 
