@@ -1,4 +1,4 @@
-import { OutputMessage } from '../types/output';
+import { OutputMessage } from '../models/output';
 
 export async function consumeFromKafka(
   topic: string,

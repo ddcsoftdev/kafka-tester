@@ -1,4 +1,4 @@
 import { Kafka, Producer } from 'kafkajs';
-import { OutputMessage } from '../types/output';
+import { OutputMessage } from '../models/output';
 
 
