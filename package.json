@@ -9,9 +9,26 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kafka-stream-tester-container",
+          "title": "Kafka Stream Tester",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "kafka-stream-tester-container": [
+        {
+          "type": "webview",
+          "id": "kafka-stream-tester",
+          "name": "Kafka Stream Tester"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "kafka-stream-tester.openInWindow",
@@ -19,20 +36,11 @@
         "icon": "$(window)"
       }
     ],
-    "views": {
-      "explorer": [
-        {
-          "type": "webview",
-          "id": "kafkaStreamTester",
-          "name": "Kafka Stream Tester"
-        }
-      ]
-    },
     "menus": {
       "view/title": [
         {
           "command": "kafka-stream-tester.openInWindow",
-          "when": "view == kafkaStreamTester",
+          "when": "view == kafka-stream-tester",
           "group": "navigation"
         }
       ]
@@ -40,8 +48,12 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ && node copyAssets.js",
-    "watch": "tsc -watch -p ./",
+    "compile": "rm -rf out && npm run compile:ext && npm run compile:frontend",
+    "compile:ext": "tsc -p ./src/extension.tsconfig.json",
+    "compile:frontend": "tsc -p ./src/frontend/tsconfig.json",
+    "watch": "npm run watch:ext & npm run watch:frontend",
+    "watch:ext": "tsc -watch -p ./src/extension.tsconfig.json",
+    "watch:frontend": "tsc -watch -p ./src/frontend/tsconfig.json",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test"

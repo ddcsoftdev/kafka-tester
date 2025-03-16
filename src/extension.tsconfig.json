@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "outDir": "../out",
+    "rootDir": ".",
+    "lib": ["ES2020"],
+    "types": ["node", "vscode"]
+  },
+  "include": [
+    "extension.ts",
+    "streamControlProvider.ts",
+    "kafka/**/*",
+    "types/**/*",
+    "config/**/*",
+    "faker/**/*",
+    "frontend/**/*"
+  ],
+  "exclude": ["node_modules", ".vscode-test"]
+} 

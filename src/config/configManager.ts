@@ -3,31 +3,10 @@ import { StreamControlConfig, TabConfig, OutputTabConfig, GlobalConfig } from '.
 
 export class ConfigManager {
   private static instance: ConfigManager;
-  private config: StreamControlConfig;
+  private config: Map<string, TabConfig>;
 
   private constructor() {
-    this.config = {
-      inputTabs: Array(3).fill(null).map((_, i) => ({
-        id: `input-${i + 1}`,
-        jsonTemplate: '{"id": 1, "message": "test"}',
-        sendInterval: 5,
-        topic: `test-topic-${i + 1}`,
-        brokerAddress: 'localhost:9092',
-        isPaused: false,
-        isRandomized: false
-      })),
-      outputTabs: Array(3).fill(null).map((_, i) => ({
-        id: `output-${i + 1}`,
-        topic: `test-topic-${i + 1}`,
-        brokerAddress: 'localhost:9092',
-        isConnected: false
-      })),
-      global: {
-        useLocalBroker: false,
-        batchSize: 1,
-        repeatCount: 0
-      }
-    };
+    this.config = new Map();
   }
 
   public static getInstance(): ConfigManager {
@@ -37,33 +16,59 @@ export class ConfigManager {
     return ConfigManager.instance;
   }
 
-  public getConfig(): StreamControlConfig {
+  public getConfig(): Map<string, TabConfig> {
     return this.config;
   }
 
+  public getTabConfig(tabId: string): TabConfig | undefined {
+    return this.config.get(tabId);
+  }
+
+  public updateTabConfig(tabId: string, updates: Partial<TabConfig>): void {
+    const currentConfig = this.config.get(tabId) || {
+      id: tabId,
+      jsonTemplate: '',
+      sendInterval: 0,
+      topic: '',
+      brokerAddress: '',
+      isPaused: true,
+      isRandomized: false
+    };
+
+    this.config.set(tabId, {
+      ...currentConfig,
+      ...updates
+    });
+  }
+
+  public deleteTabConfig(tabId: string): void {
+    this.config.delete(tabId);
+  }
+
   public updateInputTab(tabId: string, updates: Partial<TabConfig>): void {
-    const tab = this.config.inputTabs.find(t => t.id === tabId);
+    const tab = this.config.get(tabId);
     if (tab) {
       Object.assign(tab, updates);
     }
   }
 
   public updateOutputTab(tabId: string, updates: Partial<OutputTabConfig>): void {
-    const tab = this.config.outputTabs.find(t => t.id === tabId);
+    const tab = this.config.get(tabId);
     if (tab) {
       Object.assign(tab, updates);
     }
   }
 
   public updateGlobalConfig(updates: Partial<GlobalConfig>): void {
-    Object.assign(this.config.global, updates);
+    // Implementation needed
   }
 
   public getInputTab(tabId: string): TabConfig | undefined {
-    return this.config.inputTabs.find(t => t.id === tabId);
+    return this.config.get(tabId);
   }
 
   public getOutputTab(tabId: string): OutputTabConfig | undefined {
-    return this.config.outputTabs.find(t => t.id === tabId);
+    // Implementation needed
+    return undefined;
   }
 } 

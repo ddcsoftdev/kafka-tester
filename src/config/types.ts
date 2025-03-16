@@ -6,6 +6,10 @@ export interface TabConfig {
   brokerAddress: string;
   isPaused: boolean;
   isRandomized: boolean;
+  stopAfter?: {
+    enabled: boolean;
+    count: number;
+  };
 }
 
 export interface OutputTabConfig {
