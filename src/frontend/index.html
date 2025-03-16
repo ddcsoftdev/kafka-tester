@@ -6,11 +6,6 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} 'unsafe-inline';">
     <title>Kafka Tester</title>
     <style>
-        :root {
-            --border-radius: 4px;
-            --transition-speed: 0.2s;
-        }
-
         body {
             padding: 16px;
             color: var(--vscode-foreground);
@@ -43,92 +38,17 @@
             color: var(--vscode-foreground);
         }
 
-        parameter-manager, output-component {
+        output-component {
             flex: 1;
             min-height: 0;
-        }
-
-        button {
-            background: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: 1px solid var(--vscode-button-border);
-            padding: 4px 12px;
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-size: 0.9em;
-            transition: all var(--transition-speed) ease;
-        }
-
-        button:hover {
-            background: var(--vscode-button-hoverBackground);
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
-
-        input[type="text"],
-        input[type="number"] {
-            background: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
-            border: 1px solid var(--vscode-input-border);
-            padding: 4px 8px;
-            border-radius: var(--border-radius);
-            font-size: 0.9em;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus {
-            outline: none;
-            border-color: var(--vscode-focusBorder);
-        }
-
-        select {
-            background: var(--vscode-dropdown-background);
-            color: var(--vscode-dropdown-foreground);
-            border: 1px solid var(--vscode-dropdown-border);
-            padding: 4px 8px;
-            border-radius: var(--border-radius);
-            font-size: 0.9em;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        select:focus {
-            outline: none;
-            border-color: var(--vscode-focusBorder);
-        }
-
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 8px 0;
-        }
-
-        input[type="checkbox"] {
-            margin: 0;
-        }
-
-        label {
-            font-size: 0.9em;
-            color: var(--vscode-foreground);
         }
     </style>
 </head>
 <body>
     <div id="app">
         <header-component id="header-component"></header-component>
-        <section id="input-section">
-            <h2 class="section-title">Input</h2>
-            <input-component id="input-component"></input-component>
-        </section>
-        <section id="output-section">
-            <h2 class="section-title">Output</h2>
-            <output-component id="output-component"></output-component>
-        </section>
+        <input-component id="input-component"></input-component>
+        <output-component id="output-component"></output-component>
     </div>
     <script type="module" src="{{scriptUri}}"></script>
 </body>
