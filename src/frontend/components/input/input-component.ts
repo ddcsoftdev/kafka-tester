@@ -504,6 +504,22 @@ export class InputComponent extends HTMLElement {
         const paramComponent = document.createElement('parameter-component') as any;
         paramSection.appendChild(paramComponent);
         
+        // Wait for the custom element to be defined and initialized
+        // Use setTimeout to ensure the component is fully initialized
+        setTimeout(() => {
+            // Set parameters to parameter component
+            if (paramComponent.setParameters) {
+                paramComponent.setParameters(config.parameters);
+            }
+            
+            if (typeof paramComponent.parametersCallback === 'function') {
+                paramComponent.parametersCallback = (parameters: any[]) => {
+                    config.parameters = parameters;
+                    this.notifyStateChange();
+                };
+            }
+        }, 0);
+
         // Start/Stop button
         const buttonGroup = document.createElement('div');
         buttonGroup.className = 'form-group';
@@ -520,13 +536,6 @@ export class InputComponent extends HTMLElement {
 
         // Add event listeners
         this.addContentEventListeners(config);
-        
-        // Set parameters to parameter component
-        paramComponent.setParameters(config.parameters);
-        paramComponent.parametersCallback = (parameters: any[]) => {
-            config.parameters = parameters;
-            this.notifyStateChange();
-        };
     }
 
     private formatJson(jsonString: string): string {
