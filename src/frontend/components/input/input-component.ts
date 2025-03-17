@@ -4,6 +4,9 @@
  * A web component for managing Kafka input configurations with tabs.
  */
 
+// Remove the import statement for TerminalComponent
+// import { TerminalComponent, TerminalInputEvent } from '../terminal/terminal-component';
+
 // Declare global property for Monaco editor handler
 declare global {
     interface Window {
@@ -12,7 +15,14 @@ declare global {
     }
 }
 
-interface InputConfig {
+// Define the TerminalInputEvent interface for type checking
+interface TerminalInputEvent extends CustomEvent {
+    detail: {
+        content: string;
+    };
+}
+
+export interface InputConfig {
     id: string;
     name: string;
     topic: string;
@@ -22,68 +32,108 @@ interface InputConfig {
     isRunning: boolean;
 }
 
+/**
+ * InputComponent - A web component for managing Kafka input configurations
+ * 
+ * Features:
+ * - Tab-based interface for multiple input configurations
+ * - JSON template editing with terminal component
+ * - Parameter management
+ * - Stream control settings
+ */
 export class InputComponent extends HTMLElement {
+    // VSCode API reference
     private _vscode: any;
+    
+    // State
     private _sleep: number = 0;
     private _stopAfter: { enabled: boolean; count: number } = { enabled: false, count: 100 };
     private _configs: InputConfig[] = [];
     private _activeConfigId: string | null = null;
     private _isCollapsed: boolean = false;
     
-    private tabContainer: HTMLDivElement = document.createElement('div');
-    private contentContainer: HTMLDivElement = document.createElement('div');
-    private mainContainer: HTMLDivElement = document.createElement('div');
+    // DOM Elements
+    private tabContainer: HTMLDivElement;
+    private contentContainer: HTMLDivElement;
+    private mainContainer: HTMLDivElement;
+    
+    // Terminal components map (configId -> HTMLElement)
+    private terminalComponents: Map<string, HTMLElement> = new Map();
 
+    /**
+     * Constructor - Initialize the component
+     */
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
+        
+        // Initialize DOM elements
+        this.tabContainer = document.createElement('div');
+        this.contentContainer = document.createElement('div');
+        this.mainContainer = document.createElement('div');
+        
         this.init();
     }
 
+    /**
+     * Connected callback - Called when the element is added to the DOM
+     */
     connectedCallback() {
         this.render();
     }
 
+    /**
+     * Set VSCode API reference
+     */
     set vscode(value: any) {
         this._vscode = value;
+        
+        // Update vscode reference for all terminal components
+        this.terminalComponents.forEach(terminal => {
+            (terminal as any).vscode = value;
+        });
     }
 
+    /**
+     * Load state from saved configuration
+     */
     public loadState(state: any): void {
-        if (state) {
-            this._sleep = state.sleep || 0;
-            this._stopAfter = state.stopAfter || { enabled: false, count: 100 };
-            const globalRunningState = state.isRunning || false;
-            this._isCollapsed = state.isCollapsed || false;
-            
-            if (state.configs && state.configs.length > 0) {
-                this._configs = state.configs;
-                this._activeConfigId = state.activeConfigId || this._configs[0].id;
-            } else if (state.topic !== undefined) {
-                // Legacy format - convert to new format
-                this._configs = [{
-                    id: crypto.randomUUID(),
-                    name: 'Input 1',
-                    topic: state.topic || '',
-                    broker: state.broker || '',
-                    template: state.template || '',
-                    parameters: state.parameters || [],
-                    isRunning: globalRunningState
-                }];
-                this._activeConfigId = this._configs[0].id;
-            } else {
-                this.ensureDefaultConfig();
-                // Apply global running state to all configs if it was set
-                if (globalRunningState) {
-                    this._configs.forEach(config => {
-                        config.isRunning = true;
-                    });
-                }
-            }
-            
-            this.render();
+        if (!state) {
+            this.ensureDefaultConfig();
+            return;
+        }
+        
+        this._sleep = state.sleep || 0;
+        this._stopAfter = state.stopAfter || { enabled: false, count: 100 };
+        const globalRunningState = state.isRunning || false;
+        this._isCollapsed = state.isCollapsed || false;
+        
+        if (state.configs && state.configs.length > 0) {
+            this._configs = state.configs;
+            this._activeConfigId = state.activeConfigId || this._configs[0].id;
+        } else if (state.topic !== undefined) {
+            // Legacy format - convert to new format
+            this._configs = [{
+                id: crypto.randomUUID(),
+                name: 'Input 1',
+                topic: state.topic || '',
+                broker: state.broker || '',
+                template: state.template || '',
+                parameters: state.parameters || [],
+                isRunning: globalRunningState
+            }];
+            this._activeConfigId = this._configs[0].id;
         } else {
             this.ensureDefaultConfig();
+            // Apply global running state to all configs if it was set
+            if (globalRunningState) {
+                this._configs.forEach(config => {
+                    config.isRunning = true;
+                });
+            }
         }
+        
+        this.render();
     }
 
     private init() {
@@ -310,6 +360,9 @@ export class InputComponent extends HTMLElement {
         input.select();
     }
 
+    /**
+     * Render the content for a configuration
+     */
     private renderConfigContent(configId: string) {
         const config = this._configs.find(c => c.id === configId);
         if (!config) return;
@@ -353,7 +406,7 @@ export class InputComponent extends HTMLElement {
             </div>
         `;
 
-        // Template with Simple JSON Editor
+        // Template with Terminal Component for JSON editing
         const templateGroup = document.createElement('div');
         templateGroup.className = 'form-group';
         
@@ -362,56 +415,67 @@ export class InputComponent extends HTMLElement {
         templateLabel.textContent = 'JSON Template';
         templateGroup.appendChild(templateLabel);
         
-        // Create editor container
-        const editorContainer = document.createElement('div');
-        editorContainer.className = 'json-editor-container';
-        templateGroup.appendChild(editorContainer);
-        
-        // Create toolbar for the editor (optional)
-        const editorToolbar = document.createElement('div');
-        editorToolbar.className = 'json-editor-toolbar';
+        // Create format button and status indicator
+        const toolbarContainer = document.createElement('div');
+        toolbarContainer.className = 'json-editor-toolbar';
         
         const formatButton = document.createElement('button');
         formatButton.className = 'json-editor-btn format-btn';
         formatButton.textContent = 'Format JSON';
-        formatButton.title = 'Format JSON with proper indentation (optional)';
+        formatButton.title = 'Format JSON with proper indentation';
         
-        editorToolbar.appendChild(formatButton);
-        editorContainer.appendChild(editorToolbar);
-        
-        // Create status indicator
         const statusIndicator = document.createElement('div');
         statusIndicator.className = 'json-editor-status';
         statusIndicator.textContent = 'Ready';
-        editorContainer.appendChild(statusIndicator);
         
-        // Create a simple textarea for JSON editing
-        const editorTextarea = document.createElement('textarea');
-        editorTextarea.className = 'json-editor-textarea';
-        editorTextarea.id = `editor-${config.id}`;
-        editorTextarea.spellcheck = false;
-        editorTextarea.value = config.template || '';
-        editorContainer.appendChild(editorTextarea);
+        toolbarContainer.appendChild(formatButton);
+        toolbarContainer.appendChild(statusIndicator);
+        templateGroup.appendChild(toolbarContainer);
         
-        // Add event listeners for the editor
-        editorTextarea.addEventListener('input', (e) => {
-            const value = editorTextarea.value;
-            config.template = value;
-            this.notifyStateChange();
-        });
+        // Create terminal container
+        const terminalContainer = document.createElement('div');
+        terminalContainer.className = 'json-terminal-container';
+        templateGroup.appendChild(terminalContainer);
         
-        // Format button functionality (optional)
+        // Create or retrieve terminal component for this config
+        let terminalComponent = this.terminalComponents.get(config.id) as any;
+        
+        if (!terminalComponent) {
+            // Create terminal component as a custom element
+            terminalComponent = document.createElement('terminal-component');
+            this.terminalComponents.set(config.id, terminalComponent);
+        }
+        
+        // Set up terminal component
+        terminalComponent.vscode = this._vscode;
+        
+        // Add terminal component to container
+        terminalContainer.appendChild(terminalComponent);
+        
+        // Set initial content if available
+        if (config.template) {
+            terminalComponent.clearMessages();
+            terminalComponent.addTextMessage(config.template, 'input');
+        }
+        
+        // Add event listener for format button
         formatButton.addEventListener('click', () => {
             try {
-                const value = editorTextarea.value.trim();
-                if (!value) return;
+                // Get the current content from terminal
+                const content = terminalComponent.getContent();
+                if (!content.trim()) return;
                 
-                const formatted = this.formatJson(value);
+                const formatted = this.formatJson(content);
                 if (formatted) {
-                    editorTextarea.value = formatted;
+                    // Update terminal with formatted content
+                    terminalComponent.clearMessages();
+                    terminalComponent.addTextMessage(formatted, 'input');
+                    
+                    // Update config
                     config.template = formatted;
                     this.notifyStateChange();
                     
+                    // Show success message
                     statusIndicator.textContent = 'JSON formatted successfully';
                     statusIndicator.className = 'json-editor-status success';
                     setTimeout(() => {
@@ -424,13 +488,20 @@ export class InputComponent extends HTMLElement {
                 statusIndicator.className = 'json-editor-status error';
             }
         });
+        
+        // Add input handler for terminal
+        terminalComponent.addEventListener('terminalInput', (e: Event) => {
+            const customEvent = e as TerminalInputEvent;
+            config.template = customEvent.detail.content;
+            this.notifyStateChange();
+        });
 
         // Parameters section
         const paramSection = document.createElement('div');
         paramSection.className = 'param-section';
         
         // Create parameter component
-        const paramComponent = document.createElement('parameter-component');
+        const paramComponent = document.createElement('parameter-component') as any;
         paramSection.appendChild(paramComponent);
         
         // Start/Stop button
@@ -451,82 +522,11 @@ export class InputComponent extends HTMLElement {
         this.addContentEventListeners(config);
         
         // Set parameters to parameter component
-        if (paramComponent instanceof HTMLElement) {
-            // Set parameters if the component has the method
-            if ('setParameters' in paramComponent) {
-                (paramComponent as any).setParameters(config.parameters);
-            }
-            
-            // Set callback to update parameters
-            if ('parametersCallback' in paramComponent) {
-                (paramComponent as any).parametersCallback = (parameters: any[]) => {
-                    config.parameters = parameters;
-                    this.notifyStateChange();
-                };
-            }
-        }
-        
-        // Add tab handling and auto-complete for the editor
-        editorTextarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                
-                // Insert tab at cursor position
-                const start = editorTextarea.selectionStart;
-                const end = editorTextarea.selectionEnd;
-                
-                // Insert 2 spaces for a tab
-                editorTextarea.value = editorTextarea.value.substring(0, start) + '  ' + editorTextarea.value.substring(end);
-                
-                // Move cursor after the inserted tab
-                editorTextarea.selectionStart = editorTextarea.selectionEnd = start + 2;
-                
-                // Trigger input event to update the config
-                editorTextarea.dispatchEvent(new Event('input'));
-            } else if (this.shouldAutoComplete(e)) {
-                this.handleAutoComplete(e, editorTextarea);
-            }
-        });
-    }
-    
-    private shouldAutoComplete(e: KeyboardEvent): boolean {
-        // Auto-complete for opening brackets and quotes
-        return ['{', '[', '"', "'"].includes(e.key);
-    }
-    
-    private handleAutoComplete(e: KeyboardEvent, textarea: HTMLTextAreaElement): void {
-        // Don't auto-complete if text is selected
-        if (textarea.selectionStart !== textarea.selectionEnd) {
-            return;
-        }
-        
-        // Define matching pairs
-        const pairs: {[key: string]: string} = {
-            '{': '}',
-            '[': ']',
-            '"': '"',
-            "'": "'"
+        paramComponent.setParameters(config.parameters);
+        paramComponent.parametersCallback = (parameters: any[]) => {
+            config.parameters = parameters;
+            this.notifyStateChange();
         };
-        
-        // Get the closing character for the pressed key
-        const closingChar = pairs[e.key];
-        
-        // Insert the pair
-        e.preventDefault();
-        
-        const start = textarea.selectionStart;
-        
-        // Insert opening and closing characters
-        textarea.value = 
-            textarea.value.substring(0, start) + 
-            e.key + closingChar + 
-            textarea.value.substring(start);
-        
-        // Move cursor between the pair
-        textarea.selectionStart = textarea.selectionEnd = start + 1;
-        
-        // Trigger input event to update the config
-        textarea.dispatchEvent(new Event('input'));
     }
 
     private formatJson(jsonString: string): string {
@@ -736,6 +736,9 @@ export class InputComponent extends HTMLElement {
         return this._configs.length > 0 && this._configs.every(config => config.isRunning);
     }
 
+    /**
+     * Get the component styles
+     */
     private getStyles(): string {
         return `
             :host {
@@ -995,38 +998,25 @@ export class InputComponent extends HTMLElement {
                 background: var(--vscode-input-background);
             }
 
-            textarea.template-input {
+            .json-terminal-container {
                 width: 100%;
-                min-height: 200px;
-                padding: 8px 12px;
-                background: var(--vscode-input-background);
-                color: var(--vscode-input-foreground);
-                border: 1px solid var(--vscode-input-border);
-                border-radius: 2px;
-                font-family: var(--vscode-editor-font-family, monospace);
-                font-size: 13px;
-                line-height: 1.5;
-                resize: vertical;
-                box-sizing: border-box;
-                tab-size: 2;
-            }
-
-            .json-editor-container {
-                width: 100%;
+                height: 300px;
                 border: 1px solid var(--vscode-input-border);
                 border-radius: 2px;
                 overflow: hidden;
                 background: var(--vscode-editor-background);
-                display: flex;
-                flex-direction: column;
+                margin-bottom: 8px;
             }
             
             .json-editor-toolbar {
                 display: flex;
                 padding: 4px 8px;
                 background: var(--vscode-editor-background);
-                border-bottom: 1px solid var(--vscode-panel-border);
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 2px;
+                margin-bottom: 8px;
                 gap: 8px;
+                align-items: center;
             }
             
             .json-editor-btn {
@@ -1047,63 +1037,15 @@ export class InputComponent extends HTMLElement {
                 padding: 2px 8px;
                 font-size: 11px;
                 color: var(--vscode-descriptionForeground);
-                background: var(--vscode-editor-background);
-                border-bottom: 1px solid var(--vscode-panel-border);
+                margin-left: auto;
             }
             
             .json-editor-status.error {
                 color: var(--vscode-errorForeground, #f48771);
-                background: var(--vscode-inputValidation-errorBackground, rgba(244, 135, 113, 0.1));
-                border-color: var(--vscode-inputValidation-errorBorder, #f48771);
             }
             
             .json-editor-status.success {
                 color: var(--vscode-terminal-ansiGreen, #89d185);
-                background: var(--vscode-inputValidation-infoBackground, rgba(137, 209, 133, 0.1));
-                border-color: var(--vscode-inputValidation-infoBorder, #89d185);
-            }
-            
-            .json-editor-wrapper {
-                position: relative;
-                width: 100%;
-                height: 300px;
-            }
-            
-            .json-editor-textarea {
-                width: 100%;
-                height: 300px;
-                padding: 8px 12px;
-                background: var(--vscode-editor-background);
-                color: var(--vscode-editor-foreground);
-                border: none;
-                font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-                font-size: 13px;
-                line-height: 1.5;
-                resize: vertical;
-                box-sizing: border-box;
-                tab-size: 2;
-                outline: none;
-                white-space: pre;
-            }
-            
-            .json-preview {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                padding: 8px 12px;
-                background: var(--vscode-editor-background);
-                border: none;
-                font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-                font-size: 13px;
-                line-height: 1.5;
-                overflow: auto;
-                box-sizing: border-box;
-                tab-size: 2;
-                white-space: pre;
-                pointer-events: none;
-                z-index: 1;
             }
 
             .param-section {
@@ -1133,24 +1075,9 @@ export class InputComponent extends HTMLElement {
                 color: var(--vscode-testing-runAction, #4CAF50);
                 font-weight: 600;
             }
-
-            .json-key {
-                color: #9CDCFE; /* Blue for keys */
-            }
-            
-            .json-string {
-                color: #CE9178; /* Orange for strings */
-            }
-            
-            .json-number {
-                color: #B5CEA8; /* Green for numbers */
-            }
-            
-            .json-boolean {
-                color: #C586C0; /* Purple for booleans and null */
-            }
         `;
     }
 }
 
+// Register the custom element
 customElements.define('input-component', InputComponent); 
